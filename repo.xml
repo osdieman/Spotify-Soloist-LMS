@@ -12,17 +12,17 @@
     <plugins>
         <plugin
             name="Soloist"
-            version="0.0.0"
+            version="0.1.28"
             target="unix"
             minTarget="8.0"
             maxTarget="*"
-            sha="0000000000000000000000000000000000000000"
-            url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.0.0/Soloist-LMS-0.0.0.zip"
+            sha="0fd37048dac78b193d6f575792ade900229dd992"
+            url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.1.28/Soloist-LMS-0.1.28.zip"
             category="musicservices"
             creator="Oscar Van Es"
         >
             <title lang="EN">Soloist Connect</title>
-            <desc lang="EN">Spotify Connect for LMS using Spotify Soloist, an ALSA Loopback and WaveInput</desc>
+            <desc lang="EN">Spotify Connect for LMS using Spotify Soloist and an ALSA Loopback</desc>
         </plugin>
     </plugins>
 </extensions>
