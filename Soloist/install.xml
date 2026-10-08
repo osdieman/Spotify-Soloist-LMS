@@ -1,7 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 <extension>
 	<name>PLUGIN_SOLOIST_NAME</name>
-	<creator>Oscar</creator>
+	<creator>Oscar Van Es</creator>
 	<defaultState>enabled</defaultState>
 	<description>PLUGIN_SOLOIST_DESC</description>
 	<category>musicservices</category>
