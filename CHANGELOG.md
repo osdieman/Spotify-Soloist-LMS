@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.29
+
+### Fixed
+- **LMS stalls of 1.5–2.6 s during playback**, found by the 0.1.28 watchdog:
+  the plugin wrote the cover URL into LMS's cache database (an SQLite file on
+  the SD card) on every status poll, about once a second. When the card was
+  busy that write blocked LMS longer than the capture buffer. The cover is now
+  cached once per track.
+- **No sound with "arecord: audio open error: Device or resource busy"**: an
+  `arecord` left over from an earlier stream kept the Loopback capture open.
+  A stale capture on the same device is now ended before a new one starts.
+
+### Changed
+- Soloist `error` events are logged with their content (`--- soloist error`
+  in `soloist.log` and in the LMS log), each distinct message at most once a
+  minute.
+- Plugin lines in `soloist.log` (capture start, watchdog reports) are written
+  through a small helper process, so logging can never block LMS.
+
 ## 0.1.28
 
 ### New
