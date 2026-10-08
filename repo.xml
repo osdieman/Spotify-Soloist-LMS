@@ -19,7 +19,7 @@
             sha="0000000000000000000000000000000000000000"
             url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.0.0/Soloist-LMS-0.0.0.zip"
             category="musicservices"
-            creator="Oscar"
+            creator="Oscar Van Es"
         >
             <title lang="EN">Soloist Connect</title>
             <desc lang="EN">Spotify Connect for LMS using Spotify Soloist, an ALSA Loopback and WaveInput</desc>
