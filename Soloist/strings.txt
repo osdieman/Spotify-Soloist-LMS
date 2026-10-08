@@ -273,3 +273,9 @@ PLUGIN_SOLOIST_EXPIRED_SHORT
 
 PLUGIN_SOLOIST_EXPIRED_LONG
 	EN	This Soloist build has expired (Soloist exit code 10). Download a newer build, copy it over the old binary and press Start.
+
+PLUGIN_SOLOIST_MEASURE
+	EN	Measure the Spotify stream
+
+PLUGIN_SOLOIST_MEASURE_DESC
+	EN	Checks which bits the captured audio actually uses and shows it in LMS: "Spotify LOSSLESS 16-bit", "Spotify LOSSLESS 24-bit", or "Spotify NOT BIT-PERFECT" (a lossy stream, or Spotify volume below 100% / normalisation). Takes a few seconds per track. Applies from the next time the source starts.

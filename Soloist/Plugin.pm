@@ -42,6 +42,8 @@ my %captureStartedAt;          # player id => when its capture started
 my %lastFlushAt;               # player id => last stream restart
 my %pausedAt;                  # player id => when LMS paused the source
 my $lastTrackPositionAt = 0;   # time the last position in $lastSoloistMetadata was valid
+my $trackStartedAt = 0;        # when Spotify switched to the current track
+my $spotifyVolume;             # Soloist volume 0..100, when reported
 my %lastErrorLogged;           # Soloist error text => time last logged
 
 use constant SOURCE_URL => 'soloist:connect';
@@ -70,6 +72,7 @@ sub initPlugin {
         stallWatchdog   => 2,      # 0 off, 1 duration, 2 duration + call stack
         appStartsPlayback => 1,
         keepDelayLow    => 1,
+        measureSource   => 1,
     });
 
     require Plugins::Soloist::Watchdog;
@@ -522,6 +525,8 @@ sub handleSoloistEvent {
     return unless ref($event) eq 'HASH';
     my $type = $event->{type} || '';
     Plugins::Soloist::Watchdog->mark("Soloist event $type");
+    $spotifyVolume = $event->{volume}
+        if defined $event->{volume} && !ref $event->{volume} && $event->{volume} =~ /\A\d+(?:\.\d+)?\z/;
     _logSoloistError($event) if $type eq 'error';
 
     # Many events omit is_active; only trust it when present.
@@ -602,6 +607,8 @@ sub handleSoloistEvent {
     return unless length($meta->{title}) || length($meta->{artist});
     my $previous = $lastSoloistMetadata;
     my $previousAt = $lastTrackPositionAt;
+    $trackStartedAt = Time::HiRes::time()
+        if !ref($previous) || ($meta->{uri} || '') ne ($previous->{uri} || '');
     $lastSoloistMetadata = $meta;
     $lastTrackPositionAt = Time::HiRes::time() if defined $meta->{position};
 
@@ -640,6 +647,19 @@ sub handleSoloistEvent {
 # as extra delay, so Next or Pause seem to react seconds late. The delay is
 # measured as time since the capture started minus what the player has
 # played of this stream. Restarting the stream drops the backlog.
+
+# "Spotify LOSSLESS 16-bit", "Spotify LOSSLESS 24-bit", "Spotify NOT
+# BIT-PERFECT" or plain "Spotify" while measuring, from the bits actually
+# used in the captured audio of the current track.
+sub sourceLabel {
+    return 'Spotify' unless $prefs->get('measureSource');
+    require Plugins::Soloist::Measure;
+    my $verdict = Plugins::Soloist::Measure->verdict($trackStartedAt);
+    return 'Spotify' unless $verdict;
+    return "Spotify LOSSLESS $verdict-bit" if $verdict eq '16' || $verdict eq '24';
+    return 'Spotify NOT BIT-PERFECT'
+        . (defined $spotifyVolume && $spotifyVolume < 100 ? sprintf(' (volume %d%%)', $spotifyVolume) : '');
+}
 
 sub captureStarted {
     my ($class, $client) = @_;

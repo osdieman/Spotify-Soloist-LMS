@@ -36,7 +36,7 @@ sub _describe {
     my $squeezelite = _findSqueezelite($client) or return;
     my $card = _cardFor($squeezelite->{device}) or return;
     my ($format, $rate) = _hwParams($card) or return;
-    my $name = _readLine("/proc/asound/$card/id") || $card;
+    my $name = _longName($card) || _readLine("/proc/asound/$card/id") || $card;
     return "$name " . _depth($format) . '/' . _khz($rate);
 }
 
@@ -100,6 +100,18 @@ sub _cardFor {
     my @playing = grep { _hwParams((split m{/}, $_)[-1]) && (_readLine("$_/id") || '') ne 'Loopback' }
         glob '/proc/asound/card[0-9]*';
     return @playing == 1 ? (split m{/}, $playing[0])[-1] : undef;
+}
+
+# Product name from /proc/asound/cards, e.g. "FiiO K11 R2R" for
+# " 1 [R2R            ]: USB-Audio - FiiO K11 R2R".
+sub _longName {
+    my ($card) = @_;
+    my ($num) = $card =~ /(\d+)\z/ or return;
+    for my $line (split /\n/, _slurp('/proc/asound/cards')) {
+        next unless $line =~ /\A\s*$num\s+\[[^\]]*\]:.*?\s-\s(.+?)\s*\z/;
+        return $1;
+    }
+    return;
 }
 
 sub _hwParams {

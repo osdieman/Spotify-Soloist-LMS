@@ -83,6 +83,9 @@
       [% END %]
     </select>
   [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_MEASURE" desc="PLUGIN_SOLOIST_MEASURE_DESC" %]
+    <input type="checkbox" class="stdedit" name="pref_measureSource" id="pref_measureSource" value="1" [% IF prefs.pref_measureSource %]checked="checked"[% END %]/>
+  [% END %]
   [% WRAPPER setting title="PLUGIN_SOLOIST_KEEP_DELAY" desc="PLUGIN_SOLOIST_KEEP_DELAY_DESC" %]
     <input type="checkbox" class="stdedit" name="pref_keepDelayLow" id="pref_keepDelayLow" value="1" [% IF prefs.pref_keepDelayLow %]checked="checked"[% END %]/>
   [% END %]

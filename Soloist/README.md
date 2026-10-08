@@ -148,12 +148,30 @@ and, with "Keep the delay low" on, restarts the stream to drop the backlog:
 on a skip from Spotify or LMS when the delay is over 2 s, when resuming after
 a pause, and at a natural track change when it is over 10 s.
 
+## What Spotify delivers (measured)
+
+Soloist outputs every stream as float, so its format says nothing about the
+source. The plugin measures it instead: the capture runs at 32-bit (ALSA
+converts Soloist's float exactly) through a small filter that checks which
+bits are in use, then passes the audio on as 24-bit to FLAC.
+
+- Only the top 16 bits used → `Spotify LOSSLESS 16-bit`
+- Down to 24 bits, nothing below → `Spotify LOSSLESS 24-bit`
+- Bits below 24 used → `Spotify NOT BIT-PERFECT`: a lossy stream, or the
+  samples were changed (Spotify volume below 100 %, normalisation, crossfade).
+
+The verdict appears a few seconds into each track. Setting: "Measure the
+Spotify stream". The filter costs a few percent of one CPU core on a Pi 4.
+
 ## What reaches the DAC
 
 For a squeezelite running on the same machine as LMS, the format field in LMS
 shows the whole chain, read live from ALSA, for example
-`Spotify → FLAC 24-bit/44.1 kHz → R2R 32-bit/44.1 kHz`. A 24-bit stream in a
-32-bit container is normal and lossless. Players elsewhere on the network show
+`Spotify LOSSLESS 16-bit → FLAC → FiiO K11 R2R 24-bit/44.1 kHz`. squeezelite opens the DAC
+once in one format (32-bit by default) and only switches the sample rate per
+track; a 16-bit or 24-bit source in a 32-bit container is the same values with
+zeros added. To have the DAC receive 24-bit, set the format in pCP's
+squeezelite ALSA settings, e.g. `80:4:24_3:1`. Players elsewhere on the network show
 the transport format only.
 
 ## Soloist cache

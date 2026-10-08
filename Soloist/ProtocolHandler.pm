@@ -76,6 +76,7 @@ sub _tuneCommand {
     my $periodUs = PERIOD_US < $bufferUs / 4 ? PERIOD_US : int($bufferUs / 4);
     $command =~ s/--buffer-time=\d+/--buffer-time=$bufferUs/;
     $command =~ s/--period-time=\d+/--period-time=$periodUs/;
+    $command = _insertMeasure($command);
 
     return $command unless $prefs->get('shimDiagnostics');
     require Plugins::Soloist::Manager;
@@ -125,6 +126,32 @@ sub _endStaleCapture {
 
 sub _slurp { my ($p) = @_; open my $fh, '<', $p or return ''; local $/; my $s = <$fh>; return defined $s ? $s : ''; }
 
+# Measure what Spotify delivers: capture 32-bit (ALSA converts Soloist's
+# float exactly), let Bin/soloist-measure.pl look at which bits are used and
+# pass the audio on as 24-bit to flac. Only for the FLAC rule, and only when
+# the script and LMS's perl are there; otherwise the plain capture is used.
+sub _insertMeasure {
+    my ($command) = @_;
+    return $command unless $prefs->get('measureSource');
+    return $command unless $command =~ /-f S24_3LE/ && $command =~ /\|\s*\S*flac/;
+    my $script = _pluginDir() . '/Bin/soloist-measure.pl';
+    my $perl = $^X;
+    return $command unless -r $script && $perl =~ m{\A/[^'\s]+\z} && -x $perl
+        && $script !~ /['\x00-\x1f]/;
+    require Plugins::Soloist::Measure;
+    my $state = Plugins::Soloist::Measure->stateFile();
+    $command =~ s/-f S24_3LE/-f S32_LE/;
+    $command =~ s/\s\|\s/ | '$perl' '$script' '$state' | /;
+    return $command;
+}
+
+sub _pluginDir {
+    require Cwd;
+    my $file = Cwd::abs_path(__FILE__) || __FILE__;
+    $file =~ s{/[^/]+\z}{};
+    return $file;
+}
+
 sub isRemote { 1 }
 sub isAudioURL { 1 }
 sub canDirectStream { 0 }
@@ -154,17 +181,17 @@ sub getMetadataFor {
     # Spotify delivers decoded float audio of unknown original depth; what we
     # can state is the transport format, and for a squeezelite on this same
     # machine the live format at its DAC (read from ALSA).
-    my $transport = $format eq 'flc' ? 'FLAC 24-bit/44.1 kHz'
-        : $format eq 'pcm' ? 'PCM 16-bit/44.1 kHz' : '';
-    my $dac;
+    my $transport = $format eq 'flc' ? 'FLAC' : $format eq 'pcm' ? 'PCM 16-bit' : '';
+    my ($dac, $source) = (undef, 'Spotify');
     if ($transport && $client) {
         require Plugins::Soloist::Output;
         $dac = Plugins::Soloist::Output->describe($client);
+        $source = Plugins::Soloist::Plugin->sourceLabel() if $format eq 'flc';
     }
     my %result = (
         title => 'Soloist Connect',
         type  => 'Spotify (Soloist Connect)',
-        ($transport ? (bitrate => join(" \x{2192} ", 'Spotify', $transport, ($dac ? $dac : ()))) : ()),
+        ($transport ? (bitrate => join(" \x{2192} ", $source, $transport, ($dac ? $dac : ()))) : ()),
     );
 
     my $meta = Plugins::Soloist::Plugin->sourceMetadata($client, $url);

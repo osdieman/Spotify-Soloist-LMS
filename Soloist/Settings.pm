@@ -20,7 +20,7 @@ sub name { Slim::Web::HTTP::CSRF->protectName('PLUGIN_SOLOIST_NAME'); }
 sub needsClient { 0; }
 sub page { Slim::Web::HTTP::CSRF->protectURI($page); }
 sub prefs {
-    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow stallWatchdog
+    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow measureSource stallWatchdog
         maxTlengthMs initialVolume cacheSize captureBufferMs), @TEXT_PREFS);
 }
 
@@ -33,7 +33,7 @@ sub handler {
 
     if ($paramRef->{saveSettings}) {
         # HTML checkboxes are omitted when unchecked; normalize explicitly.
-        for my $name (qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow)) {
+        for my $name (qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow measureSource)) {
             $paramRef->{"pref_$name"} = $paramRef->{"pref_$name"} ? 1 : 0;
         }
         for my $name (@TEXT_PREFS) {
