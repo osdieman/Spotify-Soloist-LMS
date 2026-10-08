@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    LMS repository for Soloist Connect.
+    Users add this URL in LMS Settings > Plugins > Additional Repositories:
+      https://raw.githubusercontent.com/osdieman/Spotify-Soloist-LMS/main/repo.xml
+    tools/make-release.sh updates version, sha and url for each release.
+-->
+<extensions>
+    <details>
+        <title lang="EN">Soloist Connect Repository</title>
+    </details>
+    <plugins>
+        <plugin
+            name="Soloist"
+            version="0.0.0"
+            target="unix"
+            minTarget="8.0"
+            maxTarget="*"
+            sha="0000000000000000000000000000000000000000"
+            url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.0.0/Soloist-LMS-0.0.0.zip"
+            category="musicservices"
+            creator="Oscar"
+        >
+            <title lang="EN">Soloist Connect</title>
+            <desc lang="EN">Spotify Connect for LMS using Spotify Soloist, an ALSA Loopback and WaveInput</desc>
+        </plugin>
+    </plugins>
+</extensions>
