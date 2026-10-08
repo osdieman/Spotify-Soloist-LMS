@@ -2,6 +2,7 @@ package Plugins::Soloist::Settings;
 
 use strict;
 use warnings;
+use utf8;    # literal non-ASCII text in this file is characters, not bytes
 use base qw(Slim::Web::Settings);
 
 use Slim::Utils::Log;
@@ -12,22 +13,27 @@ my $prefs = preferences('plugin.soloist');
 my $log = logger('plugin.soloist');
 my $page = 'plugins/Soloist/settings/basic.html';
 
-my @TEXT_PREFS = qw(soloistPath shimDir apiKeyFile playbackDevice deviceName dataDir cacheDir wsAddress wavinUrl autoPlayPlayer);
+my @TEXT_PREFS = qw(soloistPath shimDir apiKeyFile playbackDevice deviceName dataDir cacheDir wsAddress captureDevice autoPlayPlayer);
 
 sub new { shift->SUPER::new(@_); }
 sub name { Slim::Web::HTTP::CSRF->protectName('PLUGIN_SOLOIST_NAME'); }
 sub needsClient { 0; }
 sub page { Slim::Web::HTTP::CSRF->protectURI($page); }
 sub prefs {
-    return ($prefs, qw(autoStart shimDiagnostics maxTlengthMs initialVolume cacheSize), @TEXT_PREFS);
+    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback stallWatchdog
+        maxTlengthMs initialVolume cacheSize captureBufferMs), @TEXT_PREFS);
 }
 
 sub handler {
     my ($class, $client, $paramRef, $callback, $httpClient, $response) = @_;
 
+    # The API key arrives in its own field, never as a pref. Take it out of
+    # the parameters straight away so it can't end up anywhere else.
+    my $newKey = delete $paramRef->{soloistApiKeyInput};
+
     if ($paramRef->{saveSettings}) {
         # HTML checkboxes are omitted when unchecked; normalize explicitly.
-        for my $name (qw(autoStart shimDiagnostics)) {
+        for my $name (qw(autoStart shimDiagnostics appStartsPlayback)) {
             $paramRef->{"pref_$name"} = $paramRef->{"pref_$name"} ? 1 : 0;
         }
         for my $name (@TEXT_PREFS) {
@@ -43,6 +49,7 @@ sub handler {
             maxTlengthMs  => [500, 50, 5000],
             initialVolume => [100, 0, 100],
             cacheSize     => [100, 0, 10000],
+            captureBufferMs => [2000, 200, 4000],
         );
         for my $name (keys %limits) {
             my ($default, $min, $max) = @{$limits{$name}};
@@ -56,11 +63,14 @@ sub handler {
         $paramRef->{pref_wsAddress} = '127.0.0.1:9878'
             unless $wsHost && $wsPort >= 1 && $wsPort < 65536;
 
-        $paramRef->{pref_wavinUrl} = 'wavin:plughw:CARD=Loopback,DEV=1,SUBDEV=0'
-            unless $paramRef->{pref_wavinUrl} =~ /\Awavin:[\w:=,.\-]+\z/;
+        $paramRef->{pref_captureDevice} = 'plughw:CARD=Loopback,DEV=1,SUBDEV=0'
+            unless $paramRef->{pref_captureDevice} =~ /\A[\w:=,.\-]+\z/;
 
         $paramRef->{pref_autoPlayPlayer} = ''
             unless $paramRef->{pref_autoPlayPlayer} =~ /\A[0-9a-fA-F:.\-]{0,64}\z/;
+
+        $paramRef->{pref_stallWatchdog} = 2
+            unless defined $paramRef->{pref_stallWatchdog} && $paramRef->{pref_stallWatchdog} =~ /\A[012]\z/;
 
         for my $name (qw(soloistPath shimDir apiKeyFile dataDir cacheDir)) {
             my $value = $paramRef->{"pref_$name"};
@@ -69,7 +79,19 @@ sub handler {
                 $paramRef->{"pref_$name"} = $prefs->get($name);
             }
         }
+
+        if (defined $newKey && $newKey =~ /\S/) {
+            require Plugins::Soloist::Manager;
+            my $path = $paramRef->{pref_apiKeyFile} || $prefs->get('apiKeyFile');
+            if (Plugins::Soloist::Manager->saveKey($newKey, $path)) {
+                $paramRef->{keyMessage} = Slim::Utils::Strings::string('PLUGIN_SOLOIST_KEY_SAVED');
+            }
+            else {
+                $paramRef->{keyError} = Plugins::Soloist::Manager->lastError();
+            }
+        }
     }
+    undef $newKey;
 
     if (my $action = $paramRef->{soloistAction}) {
         require Plugins::Soloist::Manager;
@@ -104,6 +126,11 @@ sub handler {
     $paramRef->{servicePid}      = $state->{pid} || '';
     $paramRef->{serviceError}    = Plugins::Soloist::Manager->lastError();
     $paramRef->{logTail}         = Plugins::Soloist::Manager->logTail();
+    $paramRef->{helpers}         = $state->{helpers} || [];
+    $paramRef->{keyStatus}       = Plugins::Soloist::Manager->keyStatus();
+    $paramRef->{expiryHint}      = $state->{running} ? '' : Plugins::Soloist::Manager->expiryHint();
+    require Plugins::Soloist::Watchdog;
+    $paramRef->{watchdog}        = Plugins::Soloist::Watchdog->status();
     $paramRef->{players} = [
         map  { { id => $_->id, name => $_->name } }
         sort { lc($a->name) cmp lc($b->name) }

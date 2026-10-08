@@ -2,7 +2,7 @@ PLUGIN_SOLOIST_NAME
 	EN	Soloist Connect
 
 PLUGIN_SOLOIST_DESC
-	EN	Spotify Connect endpoint for LMS using Spotify Soloist, an ALSA Loopback and WaveInput
+	EN	Spotify Connect endpoint for LMS using Spotify Soloist and an ALSA Loopback
 
 PLUGIN_SOLOIST_SERVICE
 	EN	Soloist service
@@ -56,13 +56,25 @@ PLUGIN_SOLOIST_AUTOPLAY_PLAYER
 	EN	Start this player when Spotify plays
 
 PLUGIN_SOLOIST_AUTOPLAY_PLAYER_DESC
-	EN	When Spotify starts playing on this Connect device and the chosen player is idle, LMS starts the WaveInput source on it. A player that is busy with another source is never interrupted. With "Off", a player that was already on the Spotify source is still resumed.
+	EN	When Spotify starts playing on this Connect device and the chosen player is idle, LMS starts the Soloist Connect source on it. A player that is busy with another source is never interrupted. With "Off", a player that was already on the Soloist Connect source is still resumed.
 
 PLUGIN_SOLOIST_AUTOPLAY_NONE
 	EN	Off
 
-PLUGIN_SOLOIST_WAVIN_URL
-	EN	WaveInput source (wavin: URL)
+PLUGIN_SOLOIST_SOURCE_ITEM
+	EN	Spotify (Soloist Connect)
+
+PLUGIN_SOLOIST_CAPTURE_DEVICE
+	EN	ALSA capture device
+
+PLUGIN_SOLOIST_CAPTURE_DEVICE_DESC
+	EN	The Loopback side LMS records from (arecord -D). Keep plughw so the 24-bit capture works whatever format Soloist plays in.
+
+PLUGIN_SOLOIST_CAPTURE_BUFFER
+	EN	Capture buffer (ms)
+
+PLUGIN_SOLOIST_CAPTURE_BUFFER_DESC
+	EN	arecord buffer between the Loopback and LMS. A larger buffer absorbs short LMS pauses without dropping audio and adds no delay. Applies the next time the source starts.
 
 PLUGIN_SOLOIST_PATHS
 	EN	Program and key paths
@@ -107,10 +119,139 @@ PLUGIN_SOLOIST_CACHE_SIZE
 	EN	Cache size (MB)
 
 PLUGIN_SOLOIST_SHIM_DIAG
-	EN	Write audio shim diagnostics to the Soloist log
+	EN	Write audio diagnostics (shim and capture) to the Soloist log
 
 PLUGIN_SOLOIST_SAVE_HINT
 	EN	Save settings, then use Restart to apply changed launch settings.
 
 PLUGIN_SOLOIST_LOG
 	EN	Recent Soloist log
+
+PLUGIN_SOLOIST_APP_NO_PLAYER
+	EN	Select a player first, then open Soloist Connect again.
+
+PLUGIN_SOLOIST_APP_PLAY
+	EN	▶ Play Spotify on %s
+
+PLUGIN_SOLOIST_APP_SWITCH
+	EN	▶ Switch %s to Spotify
+
+PLUGIN_SOLOIST_APP_SHOW_PLAYING
+	EN	▶ Spotify is playing on %s
+
+PLUGIN_SOLOIST_APP_PLAYING_ON
+	EN	Spotify source started on %s
+
+PLUGIN_SOLOIST_APP_STARTED
+	EN	Player switched to Spotify. Choose this device in the Spotify app if nothing plays yet.
+
+PLUGIN_SOLOIST_APP_NOT_CONNECTED
+	EN	Spotify: not connected to Soloist
+
+PLUGIN_SOLOIST_APP_SESSION_ELSEWHERE
+	EN	Spotify: the session is on another device
+
+PLUGIN_SOLOIST_APP_SPOTIFY_PLAYING
+	EN	Spotify: playing %s
+
+PLUGIN_SOLOIST_APP_SPOTIFY_PAUSED
+	EN	Spotify: paused, %s
+
+PLUGIN_SOLOIST_APP_WAITING
+	EN	Spotify: waiting; choose "%s" in the Spotify app
+
+PLUGIN_SOLOIST_APP_KEY_PROBLEM
+	EN	API key missing or unreadable; see the Soloist settings page
+
+PLUGIN_SOLOIST_APP_START
+	EN	Start Soloist
+
+PLUGIN_SOLOIST_APP_RESTART
+	EN	Restart Soloist
+
+PLUGIN_SOLOIST_APP_FAVOURITE_HINT
+	EN	Save this one as a favourite for one-tap access
+
+PLUGIN_SOLOIST_APP_STARTS
+	EN	Opening the app starts Spotify
+
+PLUGIN_SOLOIST_APP_STARTS_DESC
+	EN	Opening My Apps > Soloist Connect switches the selected player to the Spotify source straight away. A player that is busy playing something else is not switched; the page then offers a button for it.
+
+PLUGIN_SOLOIST_MSG_STARTING
+	EN	Soloist is starting…
+
+PLUGIN_SOLOIST_MSG_RESTARTING
+	EN	Soloist is restarting…
+
+PLUGIN_SOLOIST_HELPERS
+	EN	Other Soloist processes
+
+PLUGIN_SOLOIST_EXPIRY_HINT
+	EN	Soloist stopped and its log mentions an expired or rejected key or licence. See "Renewal" in the README.
+
+PLUGIN_SOLOIST_API_KEY
+	EN	API key
+
+PLUGIN_SOLOIST_API_KEY_DESC
+	EN	Paste a new key and Save. It is written straight to the key file above (permissions 600) and never stored in the LMS settings. Leave empty to keep the current key.
+
+PLUGIN_SOLOIST_KEY_SAVED
+	EN	Key saved. Click Restart to use it.
+
+PLUGIN_SOLOIST_KEY_SET
+	EN	Key set
+
+PLUGIN_SOLOIST_KEY_CHANGED
+	EN	last changed
+
+PLUGIN_SOLOIST_KEY_ENDS
+	EN	ends in
+
+PLUGIN_SOLOIST_KEY_PERMS
+	EN	Key file is readable by others; run chmod 600 on it or save the key again here
+
+PLUGIN_SOLOIST_KEY_EMPTY
+	EN	Key file is empty
+
+PLUGIN_SOLOIST_KEY_UNREADABLE
+	EN	Key file cannot be read by LMS
+
+PLUGIN_SOLOIST_KEY_MISSING
+	EN	No key file yet
+
+PLUGIN_SOLOIST_KEY_EXPIRED
+	EN	API key expired on %s
+
+PLUGIN_SOLOIST_KEY_EXPIRED_ON
+	EN	Key expired on
+
+PLUGIN_SOLOIST_KEY_EXPIRES_SOON
+	EN	Key expires soon:
+
+PLUGIN_SOLOIST_KEY_EXPIRES
+	EN	Key expires on
+
+PLUGIN_SOLOIST_DAYS
+	EN	days
+
+PLUGIN_SOLOIST_WATCHDOG
+	EN	Stall watchdog
+
+PLUGIN_SOLOIST_WATCHDOG_DESC
+	EN	Notices when the LMS main loop is blocked for more than 0.5 s and writes the duration, CPU picture and what was running to soloist.log. With call stack, it also records the code LMS was stuck in. Each arecord overrun gets a timestamped note saying whether a stall preceded it.
+
+PLUGIN_SOLOIST_WATCHDOG_OFF
+	EN	Off
+
+PLUGIN_SOLOIST_WATCHDOG_ON
+	EN	On
+
+PLUGIN_SOLOIST_WATCHDOG_STACK
+	EN	On, with call stack
+
+PLUGIN_SOLOIST_WATCHDOG_COUNT
+	EN	stalls since LMS started
+
+PLUGIN_SOLOIST_WATCHDOG_LAST
+	EN	Last stall

@@ -10,19 +10,30 @@
     <h2>[% 'PLUGIN_SOLOIST_SERVICE' | string %]</h2>
     <p>
       [% IF serviceStarting %]
-        <strong style="color:#e0a800">● [% 'PLUGIN_SOLOIST_STARTING' | string %]</strong>
+        <strong style="color:#e0a800">&#9679; [% 'PLUGIN_SOLOIST_STARTING' | string %]</strong>
       [% ELSIF serviceStopping %]
-        <strong style="color:#e0a800">● [% 'PLUGIN_SOLOIST_STOPPING' | string %]</strong>
+        <strong style="color:#e0a800">&#9679; [% 'PLUGIN_SOLOIST_STOPPING' | string %]</strong>
       [% ELSIF serviceRunning %]
-        <strong style="color:#36b37e">● [% 'PLUGIN_SOLOIST_RUNNING' | string %]</strong>
+        <strong style="color:#36b37e">&#9679; [% 'PLUGIN_SOLOIST_RUNNING' | string %]</strong>
         &nbsp; [% 'PLUGIN_SOLOIST_PID' | string %]: [% servicePid | html %]
       [% ELSE %]
-        <strong style="color:#d9534f">● [% 'PLUGIN_SOLOIST_STOPPED' | string %]</strong>
+        <strong style="color:#d9534f">&#9679; [% 'PLUGIN_SOLOIST_STOPPED' | string %]</strong>
       [% END %]
       [% IF serviceStarting || serviceStopping %]
         &nbsp; <a href="[% webroot %]plugins/Soloist/settings/basic.html">[% 'PLUGIN_SOLOIST_REFRESH' | string %]</a>
       [% END %]
     </p>
+    [% IF helpers.size %]
+    <p style="opacity:.85">[% 'PLUGIN_SOLOIST_HELPERS' | string %]:
+      [% FOREACH h IN helpers %][% h.pid | html %] ([% h.comm | html %], ppid [% h.ppid | html %])[% UNLESS loop.last %], [% END %][% END %]
+    </p>
+    [% END %]
+    [% IF expiryHint %]
+    <div style="border-left:4px solid #d9534f; padding:6px 12px; margin:8px 0">
+      <strong>[% 'PLUGIN_SOLOIST_EXPIRY_HINT' | string %]</strong>
+      <pre style="white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0 0">[% expiryHint | html %]</pre>
+    </div>
+    [% END %]
     <p>
       <button class="submit" type="submit" name="soloistAction" value="start">[% 'PLUGIN_SOLOIST_START' | string %]</button>
       <button class="submit" type="submit" name="soloistAction" value="stop">[% 'PLUGIN_SOLOIST_STOP' | string %]</button>
@@ -36,7 +47,17 @@
       <button class="submit" type="submit" name="soloistAction" value="next">[% 'PLUGIN_SOLOIST_NEXT' | string %]</button>
     </p>
     [% IF actionMessage %]<p role="status">[% actionMessage | html %]</p>
-    [% ELSIF serviceError %]<p role="status" style="color:#d9534f">[% serviceError | html %]</p>[% END %]
+    [% ELSIF serviceError && serviceError != keyError %]<p role="status" style="color:#d9534f">[% serviceError | html %]</p>[% END %]
+    <p style="opacity:.85">[% 'PLUGIN_SOLOIST_WATCHDOG' | string %]:
+      [% IF watchdog.mode == 2 %][% 'PLUGIN_SOLOIST_WATCHDOG_STACK' | string %][% ELSIF watchdog.mode == 1 %][% 'PLUGIN_SOLOIST_WATCHDOG_ON' | string %][% ELSE %][% 'PLUGIN_SOLOIST_WATCHDOG_OFF' | string %][% END %]
+      [% IF watchdog.mode %]&nbsp;&middot;&nbsp;[% 'PLUGIN_SOLOIST_WATCHDOG_COUNT' | string %]: [% watchdog.stalls | html %][% END %]
+    </p>
+    [% IF watchdog.last %]
+    <details style="margin:4px 0 0">
+      <summary>[% 'PLUGIN_SOLOIST_WATCHDOG_LAST' | string %]</summary>
+      <pre style="white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto">[% watchdog.last | html %]</pre>
+    </details>
+    [% END %]
   </section>
 
   [% WRAPPER setting title="PLUGIN_SOLOIST_AUTOSTART" desc="" %]
@@ -56,8 +77,8 @@
       [% END %]
     </select>
   [% END %]
-  [% WRAPPER setting title="PLUGIN_SOLOIST_WAVIN_URL" desc="" %]
-    <input type="text" class="stdedit" name="pref_wavinUrl" value="[% prefs.pref_wavinUrl | html %]"/>
+  [% WRAPPER setting title="PLUGIN_SOLOIST_APP_STARTS" desc="PLUGIN_SOLOIST_APP_STARTS_DESC" %]
+    <input type="checkbox" class="stdedit" name="pref_appStartsPlayback" id="pref_appStartsPlayback" value="1" [% IF prefs.pref_appStartsPlayback %]checked="checked"[% END %]/>
   [% END %]
 
   <h2>[% 'PLUGIN_SOLOIST_PATHS' | string %]</h2>
@@ -70,10 +91,47 @@
   [% WRAPPER setting title="PLUGIN_SOLOIST_KEY_FILE" desc="" %]
     <input type="text" class="stdedit" name="pref_apiKeyFile" value="[% prefs.pref_apiKeyFile | html %]" autocomplete="off"/>
   [% END %]
+  [%# The key field is always rendered empty and is not a pref: on Save the
+      key goes straight into the key file above (chmod 600). %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_API_KEY" desc="PLUGIN_SOLOIST_API_KEY_DESC" %]
+    <input type="password" class="stdedit" name="soloistApiKeyInput" value="" autocomplete="new-password" spellcheck="false"/>
+    <div style="margin-top:6px">
+    [% IF keyMessage %]<strong style="color:#36b37e">[% keyMessage | html %]</strong><br/>[% END %]
+    [% IF keyError %]<strong style="color:#d9534f">[% keyError | html %]</strong><br/>[% END %]
+    [% SWITCH keyStatus.state %]
+      [% CASE 'ok' %]
+        &#9679; [% 'PLUGIN_SOLOIST_KEY_SET' | string %][% IF keyStatus.changed %], [% 'PLUGIN_SOLOIST_KEY_CHANGED' | string %] [% keyStatus.changed | html %][% END %][% IF keyStatus.tail %], [% 'PLUGIN_SOLOIST_KEY_ENDS' | string %] &hellip;[% keyStatus.tail | html %][% END %]
+      [% CASE 'permissions' %]
+        <span style="color:#d9534f">&#9679; [% 'PLUGIN_SOLOIST_KEY_PERMS' | string %] ([% keyStatus.mode | html %])</span>
+      [% CASE 'empty' %]
+        <span style="color:#d9534f">&#9679; [% 'PLUGIN_SOLOIST_KEY_EMPTY' | string %]</span>
+      [% CASE 'unreadable' %]
+        <span style="color:#d9534f">&#9679; [% 'PLUGIN_SOLOIST_KEY_UNREADABLE' | string %]</span>
+      [% CASE %]
+        <span style="color:#d9534f">&#9679; [% 'PLUGIN_SOLOIST_KEY_MISSING' | string %]</span>
+    [% END %]
+    [% IF keyStatus.expires %]
+      <br/>
+      [% IF keyStatus.expired %]
+        <strong style="color:#d9534f">[% 'PLUGIN_SOLOIST_KEY_EXPIRED_ON' | string %] [% keyStatus.expires | html %]</strong>
+      [% ELSIF keyStatus.daysLeft <= 14 %]
+        <strong style="color:#e0a800">[% 'PLUGIN_SOLOIST_KEY_EXPIRES_SOON' | string %] [% keyStatus.expires | html %] ([% keyStatus.daysLeft | html %] [% 'PLUGIN_SOLOIST_DAYS' | string %])</strong>
+      [% ELSE %]
+        [% 'PLUGIN_SOLOIST_KEY_EXPIRES' | string %] [% keyStatus.expires | html %]
+      [% END %]
+    [% END %]
+    </div>
+  [% END %]
 
   <h2>[% 'PLUGIN_SOLOIST_AUDIO' | string %]</h2>
   [% WRAPPER setting title="PLUGIN_SOLOIST_PLAYBACK_DEVICE" desc="" %]
     <input type="text" class="stdedit" name="pref_playbackDevice" value="[% prefs.pref_playbackDevice | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_CAPTURE_DEVICE" desc="PLUGIN_SOLOIST_CAPTURE_DEVICE_DESC" %]
+    <input type="text" class="stdedit" name="pref_captureDevice" value="[% prefs.pref_captureDevice | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_CAPTURE_BUFFER" desc="PLUGIN_SOLOIST_CAPTURE_BUFFER_DESC" %]
+    <input type="number" min="200" max="4000" class="stdedit" name="pref_captureBufferMs" value="[% prefs.pref_captureBufferMs | html %]"/>
   [% END %]
   [% WRAPPER setting title="PLUGIN_SOLOIST_WS" desc="" %]
     <input type="text" class="stdedit" name="pref_wsAddress" value="[% prefs.pref_wsAddress | html %]"/>
@@ -95,6 +153,13 @@
   [% END %]
   [% WRAPPER setting title="PLUGIN_SOLOIST_SHIM_DIAG" desc="" %]
     <input type="checkbox" class="stdedit" name="pref_shimDiagnostics" id="pref_shimDiagnostics" value="1" [% IF prefs.pref_shimDiagnostics %]checked="checked"[% END %]/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_WATCHDOG" desc="PLUGIN_SOLOIST_WATCHDOG_DESC" %]
+    <select class="stdedit" name="pref_stallWatchdog">
+      <option value="0" [% IF prefs.pref_stallWatchdog == 0 %]selected="selected"[% END %]>[% 'PLUGIN_SOLOIST_WATCHDOG_OFF' | string %]</option>
+      <option value="1" [% IF prefs.pref_stallWatchdog == 1 %]selected="selected"[% END %]>[% 'PLUGIN_SOLOIST_WATCHDOG_ON' | string %]</option>
+      <option value="2" [% IF prefs.pref_stallWatchdog == 2 %]selected="selected"[% END %]>[% 'PLUGIN_SOLOIST_WATCHDOG_STACK' | string %]</option>
+    </select>
   [% END %]
   <p style="opacity:.75">[% 'PLUGIN_SOLOIST_SAVE_HINT' | string %]</p>
   [% IF logTail %]

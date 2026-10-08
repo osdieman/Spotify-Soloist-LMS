@@ -2,7 +2,7 @@ package Plugins::Soloist::Plugin;
 
 use strict;
 use warnings;
-use base qw(Slim::Plugin::Base);
+use base qw(Slim::Plugin::OPMLBased);
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -22,10 +22,8 @@ my $prefs = preferences('plugin.soloist');
 my $metadataCache = Slim::Utils::Cache->new();
 
 my $initialized;
-my $activeWaveInputPlayer;
-my $activeWaveInputClient;
-my $waveInputOriginalMetadata;
-my $waveInputMetadataHookInstalled;
+my $activeSourcePlayer;
+my $activeSourceClient;
 my $originalJumpCommand;
 my $originalIndexCommand;
 my $jumpInterceptInstalled;
@@ -34,12 +32,13 @@ my $lastMetadataDiagnosticSignature = '';
 my $spotifyPlaying;            # undef = unknown (not yet seen since connect)
 my $deviceActive;              # Soloist is_active: undef = unknown
 my %lastAppliedMetadataKey;    # per LMS player id
-my %waveInputStartedAt;
+my %sourceStartedAt;
 my %lastTransportAt;
 my %suppressTransportUntil;
 my $autoStartAttempts = 0;
+my %appStartedAt;              # per LMS player id: last app-triggered start
 
-use constant DEFAULT_WAVIN_URL => 'wavin:plughw:CARD=Loopback,DEV=1,SUBDEV=0';
+use constant SOURCE_URL => 'soloist:connect';
 
 sub initPlugin {
     my ($class) = @_;
@@ -57,22 +56,36 @@ sub initPlugin {
         initialVolume   => 100,
         cacheSize       => 100,
         autoPlayPlayer  => '',
-        wavinUrl        => DEFAULT_WAVIN_URL,
+        captureDevice   => 'plughw:CARD=Loopback,DEV=1,SUBDEV=0',
+        captureBufferMs => 2000,
         shimDiagnostics => 0,
+        stallWatchdog   => 2,      # 0 off, 1 duration, 2 duration + call stack
+        appStartsPlayback => 1,
     });
 
-    $class->SUPER::initPlugin(@_);
+    require Plugins::Soloist::Watchdog;
+    Plugins::Soloist::Watchdog->start();
+    $prefs->setChange(sub { Plugins::Soloist::Watchdog->start() }, 'stallWatchdog');
+
+    # Our own soloist: source (replaces WaveInput). Its transcoding rules come
+    # from custom-convert.conf / custom-types.conf in this plugin folder.
+    require Plugins::Soloist::ProtocolHandler;
+    Slim::Player::ProtocolHandlers->registerHandler('soloist', 'Plugins::Soloist::ProtocolHandler');
+
+    # "Soloist Connect" entry under My Apps that starts the source.
+    $class->SUPER::initPlugin(
+        feed   => \&_feed,
+        tag    => 'soloist',
+        menu   => 'radios',
+        is_app => 1,
+        weight => 10,
+    );
 
     require Plugins::Soloist::Settings;
     Plugins::Soloist::Settings->new();
 
-    # WaveInput supplies its own protocol getMetadataFor(), so LMS never
-    # reaches the generic RemoteMetadata provider for wavin: URLs. Wrap that
-    # method and enrich its response only while our WaveInput source is active.
-    _installWaveInputMetadataHook();
-
     # LMS Next/Previous must not run LMS's own playlist jump on the single
-    # wavin: item: that closes the arecord capture and leaves the player
+    # soloist: item: that closes the arecord capture and leaves the player
     # silent until Play is pressed. Intercept the jump and send it to Spotify.
     _installJumpIntercept();
 
@@ -102,21 +115,23 @@ sub shutdownPlugin {
     Slim::Control::Request::unsubscribe(\&_onModeCommand);
     Slim::Utils::Timers::killTimers($class, \&_autoStart);
     Slim::Utils::Timers::killTimers($class, \&_resumeLmsForSpotify);
+    require Plugins::Soloist::Watchdog;
+    Plugins::Soloist::Watchdog->stop();
     _removeJumpIntercept();
     require Plugins::Soloist::Manager;
     Plugins::Soloist::Manager->stop();
     require Plugins::Soloist::Metadata;
     Plugins::Soloist::Metadata->stop();
-    _removeWaveInputMetadataHook();
-    $activeWaveInputPlayer = undef;
-    $activeWaveInputClient = undef;
+    $activeSourcePlayer = undef;
+    $activeSourceClient = undef;
     $lastSoloistMetadata = undef;
     $lastMetadataDiagnosticSignature = '';
     $spotifyPlaying = undef;
     %lastAppliedMetadataKey = ();
-    %waveInputStartedAt = ();
+    %sourceStartedAt = ();
     %lastTransportAt = ();
     %suppressTransportUntil = ();
+    %appStartedAt = ();
     $initialized = 0;
 }
 
@@ -146,57 +161,161 @@ sub _autoStart {
 }
 
 # ---------------------------------------------------------------------------
-# WaveInput metadata hook
+# Source menu and metadata
 
-sub _installWaveInputMetadataHook {
-    my $loaded = eval { require Plugins::WaveInput::WAVIN; 1 };
-    unless ($loaded) {
-        $log->warn('Could not load WaveInput metadata handler: ' . ($@ || 'unknown error'));
-        return;
-    }
-
-    no strict 'refs';
-    no warnings 'redefine';
-    my $slot = 'Plugins::WaveInput::WAVIN::getMetadataFor';
-    my $original = *{$slot}{CODE};
-    unless ($original) {
-        $log->warn('WaveInput getMetadataFor method was not found; Soloist artwork bridge is inactive');
-        return;
-    }
-    return if $waveInputMetadataHookInstalled;
-
-    $waveInputOriginalMetadata = $original;
-    *{$slot} = sub {
-        my ($class, $client, $url, @rest) = @_;
-        my $base = $original->(@_);
-        return $base unless $client && defined $url && $url =~ /^wavin:/i;
-
-        my $master = _masterClient($client);
-        my $meta = $master ? $master->pluginData('soloistMetadata') : undef;
-        return $base unless ref($meta) eq 'HASH' && ($meta->{url} || '') eq $url;
-        return $base unless _isActiveWaveInput($master);
-
-        my %result = ref($base) eq 'HASH' ? %{$base} : ();
-        @result{qw(title artist album duration)} = @{$meta}{qw(title artist album duration)};
-        if ($meta->{cover}) {
-            $result{cover} = $meta->{cover};
-            $result{icon} = $meta->{cover};
-            $metadataCache->set("remote_image_$url", $meta->{cover}, 3600);
-        }
-        $result{type} = 'Spotify';
-        return \%result;
-    };
-    $waveInputMetadataHookInstalled = 1;
-    $log->info('Wrapped WaveInput getMetadataFor for live metadata and artwork');
+# My Apps -> Soloist Connect. Opening the app is the "one tap": the player
+# is switched to the Soloist source right away (unless it is busy playing
+# something else), and the page shows what is going on plus the controls.
+sub _feed {
+    my ($client, $callback, $args) = @_;
+    Plugins::Soloist::Watchdog->mark('Soloist app menu');
+    $client = _masterClient($client);
+    my $started = $client && $prefs->get('appStartsPlayback') ? _appAutoStart($client) : '';
+    $callback->({ items => _appItems($client, $started) });
 }
 
-sub _removeWaveInputMetadataHook {
-    return unless $waveInputMetadataHookInstalled && $waveInputOriginalMetadata;
-    no strict 'refs';
-    no warnings 'redefine';
-    *{'Plugins::WaveInput::WAVIN::getMetadataFor'} = $waveInputOriginalMetadata;
-    $waveInputOriginalMetadata = undef;
-    $waveInputMetadataHookInstalled = 0;
+sub _appItems {
+    my ($client, $started) = @_;
+    require Plugins::Soloist::Manager;
+    my $state = Plugins::Soloist::Manager->status();
+    my @items;
+
+    if (!$client) {
+        push @items, { name => string('PLUGIN_SOLOIST_APP_NO_PLAYER'), type => 'text' };
+    }
+    else {
+        my $onSource = _isSoloistSource($client);
+        my $playing = eval { $client->isPlaying() } ? 1 : 0;
+        push @items, {
+            name => sprintf(string($onSource && $playing ? 'PLUGIN_SOLOIST_APP_SHOW_PLAYING'
+                : $playing ? 'PLUGIN_SOLOIST_APP_SWITCH' : 'PLUGIN_SOLOIST_APP_PLAY'), $client->name),
+            type       => 'link',
+            url        => \&_appPlay,
+            nextWindow => 'nowPlaying',
+        };
+        push @items, { name => string('PLUGIN_SOLOIST_APP_STARTED'), type => 'text' } if $started eq 'started';
+    }
+
+    # Soloist and Spotify status
+    my $service = $state->{starting} ? string('PLUGIN_SOLOIST_STARTING')
+        : $state->{stopping} ? string('PLUGIN_SOLOIST_STOPPING')
+        : $state->{running} ? string('PLUGIN_SOLOIST_RUNNING')
+        : string('PLUGIN_SOLOIST_STOPPED');
+    push @items, { name => string('PLUGIN_SOLOIST_NAME') . ': ' . $service, type => 'text' };
+    push @items, { name => _spotifyStatusText($state), type => 'text' };
+
+    my $key = Plugins::Soloist::Manager->keyStatus();
+    if ($key->{state} ne 'ok' && $key->{state} ne 'permissions') {
+        push @items, { name => string('PLUGIN_SOLOIST_APP_KEY_PROBLEM'), type => 'text' };
+    }
+    elsif ($key->{expired}) {
+        push @items, { name => sprintf(string('PLUGIN_SOLOIST_KEY_EXPIRED'), $key->{expires}), type => 'text' };
+    }
+
+    push @items, {
+        name => string($state->{running} ? 'PLUGIN_SOLOIST_APP_RESTART' : 'PLUGIN_SOLOIST_APP_START'),
+        type => 'link',
+        url  => \&_appServiceAction,
+        passthrough => [ $state->{running} ? 'restart' : 'start' ],
+        nextWindow  => 'refresh',
+    };
+
+    # Plain playable item: the one to save as a favourite.
+    push @items, {
+        name  => string('PLUGIN_SOLOIST_SOURCE_ITEM'),
+        line2 => string('PLUGIN_SOLOIST_APP_FAVOURITE_HINT'),
+        url   => SOURCE_URL,
+        type  => 'audio',
+    };
+    return \@items;
+}
+
+sub _spotifyStatusText {
+    my ($state) = @_;
+    require Plugins::Soloist::Metadata;
+    return string('PLUGIN_SOLOIST_APP_NOT_CONNECTED')
+        unless $state->{running} && Plugins::Soloist::Metadata->isConnected();
+    return string('PLUGIN_SOLOIST_APP_SESSION_ELSEWHERE') if defined $deviceActive && !$deviceActive;
+    my $meta = $lastSoloistMetadata;
+    if (ref $meta eq 'HASH' && length($meta->{title} || '')) {
+        my $track = $meta->{artist} ? "$meta->{artist} - $meta->{title}" : $meta->{title};
+        return sprintf(string($spotifyPlaying ? 'PLUGIN_SOLOIST_APP_SPOTIFY_PLAYING'
+            : 'PLUGIN_SOLOIST_APP_SPOTIFY_PAUSED'), $track);
+    }
+    return sprintf(string('PLUGIN_SOLOIST_APP_WAITING'), $prefs->get('deviceName') || 'Soloist Connect');
+}
+
+# Switch $client to the Soloist source when the app is opened. Returns
+# 'started', 'on-source', 'busy' or ''.
+sub _appAutoStart {
+    my ($client) = @_;
+    return 'on-source' if _isSoloistSource($client);
+    if (eval { $client->isPlaying() }) {
+        $log->info('Soloist app opened, but ' . $client->name . ' is playing another source; not switching');
+        return 'busy';
+    }
+    # UIs re-request the menu (back/refresh); don't act twice in a row.
+    my $now = Time::HiRes::time();
+    return '' if $appStartedAt{$client->id} && $now - $appStartedAt{$client->id} < 10;
+    $appStartedAt{$client->id} = $now;
+    $log->info('Soloist app opened: starting ' . SOURCE_URL . ' on ' . $client->name);
+    _startSourceOn($client);
+    return 'started';
+}
+
+sub _startSourceOn {
+    my ($client) = @_;
+    require Plugins::Soloist::Manager;
+    my $state = Plugins::Soloist::Manager->status();
+    Plugins::Soloist::Manager->start() unless $state->{running} || $state->{starting};
+    $suppressTransportUntil{$client->id} = Time::HiRes::time() + 3;
+    $client->execute(['playlist', 'play', SOURCE_URL, string('PLUGIN_SOLOIST_SOURCE_ITEM')]);
+    # Resume Spotify too, but only when this device certainly holds the
+    # session: a play command is account-wide and would otherwise start
+    # the phone.
+    if ($deviceActive && defined $spotifyPlaying && !$spotifyPlaying) {
+        require Plugins::Soloist::Control;
+        Plugins::Soloist::Control->send('play');
+    }
+}
+
+sub _appPlay {
+    my ($client, $callback, $args) = @_;
+    $client = _masterClient($client);
+    unless ($client) {
+        $callback->({ items => [{ name => string('PLUGIN_SOLOIST_APP_NO_PLAYER'), type => 'text' }] });
+        return;
+    }
+    if (_isSoloistSource($client)) {
+        $client->execute(['play']) unless eval { $client->isPlaying() };
+    }
+    else {
+        $appStartedAt{$client->id} = Time::HiRes::time();
+        _startSourceOn($client);
+    }
+    $callback->({ items => [{ name => sprintf(string('PLUGIN_SOLOIST_APP_PLAYING_ON'), $client->name), type => 'text' }] });
+}
+
+sub _appServiceAction {
+    my ($client, $callback, $args, $action) = @_;
+    require Plugins::Soloist::Manager;
+    my $ok = $action eq 'restart' ? Plugins::Soloist::Manager->restart() : Plugins::Soloist::Manager->start();
+    my $text = $ok
+        ? string($action eq 'restart' ? 'PLUGIN_SOLOIST_MSG_RESTARTING' : 'PLUGIN_SOLOIST_MSG_STARTING')
+        : (Plugins::Soloist::Manager->lastError() || 'Failed');
+    $callback->({ items => [{ name => $text, type => 'text' }] });
+}
+
+# Called by ProtocolHandler::getMetadataFor for soloist: URLs.
+sub sourceMetadata {
+    my ($class, $client, $url) = @_;
+    return unless $client && defined $url && $url =~ /^soloist:/i;
+    my $master = _masterClient($client);
+    my $meta = $master ? $master->pluginData('soloistMetadata') : undef;
+    return unless ref($meta) eq 'HASH' && ($meta->{url} || '') eq $url;
+    return unless _isActiveSource($master);
+    $metadataCache->set("remote_image_$url", $meta->{cover}, 3600) if $meta->{cover};
+    return $meta;
 }
 
 # ---------------------------------------------------------------------------
@@ -217,7 +336,7 @@ sub _installJumpIntercept {
     $jumpInterceptInstalled = 1;
 
     if ($originalJumpCommand && $originalIndexCommand) {
-        $log->info('Installed LMS Next/Previous intercept for WaveInput playback ('
+        $log->info('Installed LMS Next/Previous intercept for the Soloist source ('
             . (ref($prevJump) eq 'CODE' ? 'chained' : 'fallback') . ')');
     }
     else {
@@ -238,15 +357,16 @@ sub _removeJumpIntercept {
 
 sub _playlistJumpCommand {
     my ($request) = @_;
+    Plugins::Soloist::Watchdog->mark('LMS playlist jump');
     my $original = $request->isCommand([['playlist'], ['index']])
         ? $originalIndexCommand : $originalJumpCommand;
 
     my $master = _masterClient($request->client());
     my $index = $request->getParam('_index');
 
-    # Only relative jumps (+1, -1, +0) while the player is on our wavin: item
+    # Only relative jumps (+1, -1, +0) while the player is on our soloist: item
     # are redirected. Absolute indexes (e.g. starting the favourite) pass on.
-    if ($master && defined $index && $index =~ /\A[+-]\d+\z/ && _isWaveInput($master)
+    if ($master && defined $index && $index =~ /\A[+-]\d+\z/ && _isSoloistSource($master)
         && _sessionIsHere()) {
         my ($action, $extra) = $index eq '+0' ? ('seek', { position_ms => 0 })
             : $index =~ /\A\+/ ? ('skip_next') : ('skip_prev');
@@ -274,7 +394,7 @@ sub _masterClient {
     return $client;
 }
 
-sub _isWaveInput {
+sub _isSoloistSource {
     my ($client) = @_;
     $client = _masterClient($client);
     return 0 unless $client;
@@ -285,38 +405,39 @@ sub _isWaveInput {
     my $track = eval { $song->track };
     push @urls, scalar eval { $track->url } if ref $track;
     for my $url (@urls) {
-        return 1 if defined $url && $url =~ /^wavin:/i;
+        return 1 if defined $url && $url =~ /^soloist:/i;
     }
     return 0;
 }
 
-sub _isActiveWaveInput {
+sub _isActiveSource {
     my ($client) = @_;
     $client = _masterClient($client);
     return 0 unless $client;
-    return 1 if _isWaveInput($client);
-    return $activeWaveInputPlayer && $activeWaveInputPlayer eq $client->id ? 1 : 0;
+    return 1 if _isSoloistSource($client);
+    return $activeSourcePlayer && $activeSourcePlayer eq $client->id ? 1 : 0;
 }
 
 sub _onNewSong {
     my ($request) = @_;
+    Plugins::Soloist::Watchdog->mark('LMS newsong');
     my $client = _masterClient($request->client());
     return unless $client;
-    if (_isWaveInput($client)) {
-        $activeWaveInputPlayer = $client->id;
-        $activeWaveInputClient = $client;
-        $waveInputStartedAt{$client->id} = Time::HiRes::time();
-        # WaveInput resets the title to its station name whenever the stream
-        # (re)opens, so force our metadata to be re-applied.
+    if (_isSoloistSource($client)) {
+        $activeSourcePlayer = $client->id;
+        $activeSourceClient = $client;
+        $sourceStartedAt{$client->id} = Time::HiRes::time();
+        # The stream (re)opened: LMS resets the title to the item name, so
+        # force our metadata to be re-applied.
         delete $lastAppliedMetadataKey{$client->id};
-        $log->info('WaveInput playback is active for LMS player ' . $client->id);
+        $log->info('Soloist source is active on LMS player ' . $client->id);
         _applySoloistMetadata($client, $lastSoloistMetadata) if $lastSoloistMetadata;
     }
-    elsif ($activeWaveInputPlayer && $activeWaveInputPlayer eq $client->id) {
-        $activeWaveInputPlayer = undef;
-        $activeWaveInputClient = undef;
+    elsif ($activeSourcePlayer && $activeSourcePlayer eq $client->id) {
+        $activeSourcePlayer = undef;
+        $activeSourceClient = undef;
         delete $lastAppliedMetadataKey{$client->id};
-        $log->info('LMS player left WaveInput playback');
+        $log->info('LMS player left the Soloist source');
     }
 }
 
@@ -368,6 +489,7 @@ sub handleSoloistEvent {
     my ($class, $event) = @_;
     return unless ref($event) eq 'HASH';
     my $type = $event->{type} || '';
+    Plugins::Soloist::Watchdog->mark("Soloist event $type");
 
     # Many events omit is_active; only trust it when present.
     my $active = _boolField($event->{is_active});
@@ -457,44 +579,43 @@ sub handleSoloistEvent {
         }
     }
 
-    my $client = _masterClient($activeWaveInputClient);
-    return unless $client && _isActiveWaveInput($client);
+    my $client = _masterClient($activeSourceClient);
+    return unless $client && _isActiveSource($client);
     _applySoloistMetadata($client, $meta);
 }
 
 # When Spotify starts playing on this Connect device, make sure the LMS player
-# is actually streaming the WaveInput source. Never interrupts another source
+# is actually streaming the Soloist source. Never interrupts another source
 # that is currently playing.
 sub _resumeLmsForSpotify {
+    Plugins::Soloist::Watchdog->mark('auto-resume check');
     return unless $spotifyPlaying && _sessionIsHere();
     my $client;
     if (my $id = $prefs->get('autoPlayPlayer')) {
         $client = Slim::Player::Client::getClient($id);
         $log->warn("Auto-play player $id is not connected to LMS") unless $client;
     }
-    $client ||= $activeWaveInputClient;
+    $client ||= $activeSourceClient;
     $client = _masterClient($client);
     return unless $client;
 
     my $isPlaying = eval { $client->isPlaying() } ? 1 : 0;
-    my $onWavin = _isWaveInput($client);
-    return if $isPlaying && $onWavin;
+    my $onSource = _isSoloistSource($client);
+    return if $isPlaying && $onSource;
     if ($isPlaying) {
         $log->info('Spotify started, but LMS player ' . $client->name . ' is playing another source; leaving it alone');
         return;
     }
 
     $suppressTransportUntil{$client->id} = Time::HiRes::time() + 3;
-    if ($onWavin) {
-        $log->info('Spotify started; resuming WaveInput on ' . $client->name);
+    if ($onSource) {
+        $log->info('Spotify started; resuming the Soloist source on ' . $client->name);
         $client->execute(['play']);
         return;
     }
     return unless $prefs->get('autoPlayPlayer');   # only switch sources when configured
-    my $url = $prefs->get('wavinUrl') || DEFAULT_WAVIN_URL;
-    return unless $url =~ /\Awavin:/i;
-    $log->info('Spotify started; starting ' . $url . ' on ' . $client->name);
-    $client->execute(['playlist', 'play', $url, string('PLUGIN_SOLOIST_NAME')]);
+    $log->info('Spotify started; starting ' . SOURCE_URL . ' on ' . $client->name);
+    $client->execute(['playlist', 'play', SOURCE_URL, string('PLUGIN_SOLOIST_SOURCE_ITEM')]);
 }
 
 sub _soloistPositionSeconds {
@@ -545,6 +666,7 @@ sub _applySoloistMetadata {
         @{$meta}{qw(uri title artist album duration cover)});
     return if ($lastAppliedMetadataKey{$client->id} || '') eq $metadataKey;
     $lastAppliedMetadataKey{$client->id} = $metadataKey;
+    Plugins::Soloist::Watchdog->mark('apply track metadata to LMS');
 
     $client->pluginData(soloistMetadata => {
         %{$meta}, displayTitle => $display, url => $logicalUrl || '',
@@ -554,8 +676,8 @@ sub _applySoloistMetadata {
     }
     eval {
         require Slim::Music::Info;
-        # WaveInput assigns its display name with setTitle($wavinUrl, ...), so
-        # replace the cached URL title as well as the runtime title.
+        # LMS caches the menu/favourite name as the URL title, so replace
+        # the cached URL title as well as the runtime title.
         for my $url (grep { defined $_ && length $_ } ($logicalUrl,
                 ($streamUrl && $streamUrl ne ($logicalUrl || '')) ? $streamUrl : ())) {
             Slim::Music::Info::setTitle($url, $display);
@@ -587,7 +709,7 @@ sub _applySoloistMetadata {
 sub _sendTransport {
     my ($client, $command) = @_;
     $client = _masterClient($client);
-    return unless _isActiveWaveInput($client);
+    return unless _isActiveSource($client);
     my $now = Time::HiRes::time();
     # Our own auto-resume issues LMS play commands; don't echo them back.
     return 1 if ($suppressTransportUntil{$client->id} || 0) > $now;
@@ -599,6 +721,7 @@ sub _sendTransport {
     return 1 if $lastTransportAt{$key} && $now - $lastTransportAt{$key} < 0.25;
     $lastTransportAt{$key} = $now;
     $log->info("LMS->Soloist transport: $command (player=" . $client->id . ')');
+    Plugins::Soloist::Watchdog->mark("LMS->Soloist $command");
     require Plugins::Soloist::Control;
     Plugins::Soloist::Control->send($command);
 }
@@ -606,13 +729,13 @@ sub _sendTransport {
 sub _onPlaylistPause {
     my ($request) = @_;
     my $client = _masterClient($request->client());
-    return unless _isActiveWaveInput($client);
+    return unless _isActiveSource($client);
     if ($request->isCommand([['playlist'], ['pause']])) {
-        # Opening a wavin stream can emit a transient pause while LMS replaces
+        # Opening the soloist: stream can emit a transient pause while LMS replaces
         # the previous playlist item. Don't echo that back to Spotify.
-        if ($waveInputStartedAt{$client->id}
-            && Time::HiRes::time() - $waveInputStartedAt{$client->id} < 3) {
-            $log->debug('Ignoring transient LMS pause while WaveInput starts');
+        if ($sourceStartedAt{$client->id}
+            && Time::HiRes::time() - $sourceStartedAt{$client->id} < 3) {
+            $log->debug('Ignoring transient LMS pause while the Soloist source starts');
             return;
         }
         # LMS convention: _newvalue 1 = paused, 0/undef = resumed.
@@ -634,7 +757,7 @@ sub _onPlayCommand {
 sub _onSimplePauseCommand {
     my ($request) = @_;
     my $client = _masterClient($request->client());
-    return unless _isActiveWaveInput($client);
+    return unless _isActiveSource($client);
     my $value = $request->getParam('_newvalue');
     my $pause;
     if (defined $value) {
@@ -650,7 +773,7 @@ sub _onSimplePauseCommand {
 sub _onModeCommand {
     my ($request) = @_;
     my $client = _masterClient($request->client());
-    return unless _isActiveWaveInput($client);
+    return unless _isActiveSource($client);
     my $mode = eval { $request->getRequest(1) } || '';
     return unless $mode eq 'play' || $mode eq 'pause';
     _sendTransport($client, $mode);
