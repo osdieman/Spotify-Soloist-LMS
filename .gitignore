@@ -1,7 +1,7 @@
 # Never commit secrets, binaries or logs
 api-key
 *.key
-soloist
+bin/
 soloist.log*
 soloist.pid
 libpulse.so*
