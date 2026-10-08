@@ -16,7 +16,7 @@
             target="unix"
             minTarget="8.0"
             maxTarget="*"
-            sha="0fd37048dac78b193d6f575792ade900229dd992"
+            sha="aa1dc8460d9141f7297403fcd0a50fcaae6f2985"
             url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.1.28/Soloist-LMS-0.1.28.zip"
             category="musicservices"
             creator="Oscar Van Es"
