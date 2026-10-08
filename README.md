@@ -6,26 +6,35 @@ Pick it in the Spotify app and the music plays through LMS, so it can go to
 any Squeezelite player or synced group like any other source.
 
 ```
-Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► WaveInput ─► LMS ─► your players
+Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► soloist:connect (24-bit → FLAC) ─► LMS ─► your players
 ```
 
 ## Features
 
 - Spotify Connect device name of your choice
+- **One tap:** opening *My Apps → Soloist Connect* switches the player to
+  Spotify (never interrupts a player that is busy with another source)
+- Own capture source: 24-bit capture encoded to FLAC, shown in LMS as
+  "Spotify → FLAC 24-bit" (16-bit PCM for players without FLAC).
+  WaveInput is no longer needed
 - Title, artist, album, cover art and progress shown in LMS
 - Play, pause, next and previous from any LMS interface control Spotify
 - LMS starts or resumes the player automatically when Spotify starts playing
-  (optional, never interrupts a player that is busy with another source)
+  (optional)
 - Start, stop and restart Soloist from the plugin settings page, with autostart
-  and a live log view
+  and a live log view; Stop also ends Soloist's helper process
+- API key entered on the settings page and stored only in a private key file
+  (`chmod 600`), never in the LMS preferences
+- Stall watchdog: logs when the LMS main loop is blocked, with the code it was
+  stuck in, and marks every capture overrun with whether a stall caused it
 - Never sends commands while the Spotify session is on another device, so
   pausing in LMS doesn't pause your phone
 
 ## Requirements
 
-- Lyrion Music Server 8.0 or later on Linux (tested on piCorePlayer, Raspberry Pi 4)
-- The **WaveInput** plugin
-- The ALSA Loopback driver: `snd-aloop`
+- Lyrion Music Server 8.0 or later on **piCorePlayer** (tested on a
+  Raspberry Pi 4, 64-bit). Other systems are not supported for now.
+- The ALSA Loopback driver `snd-aloop`, loaded at boot (see Setup)
 - **Spotify Soloist** and a Soloist API key from Spotify. Soloist is
   proprietary and is *not* included here; see Spotify's Soloist documentation.
   It needs glibc 2.38 or newer.
@@ -48,33 +57,61 @@ Copy the `Soloist` folder to your LMS plugin folder (on piCorePlayer:
 
 ## Setup
 
-1. Put the Soloist binary in a folder such as `/mnt/mmcblk0p2/tce/soloist/bin/`,
-   and the shim in `/mnt/mmcblk0p2/tce/soloist/shim/`.
-2. Save your API key in a file and protect it: `chmod 600 api-key`.
-3. In LMS, add a favourite with the URL
-   `wavin:plughw:CARD=Loopback,DEV=1,SUBDEV=0`.
-4. Open the Soloist Connect settings page, check the paths, save, and press
-   **Start**.
-5. Select the device in the Spotify app and press play.
+1. Load the Loopback driver at every boot: pCP web interface → **Tweaks** →
+   **User Commands**, enter `modprobe snd-aloop`, Save, reboot. Check with
+   `cat /proc/asound/cards` (it should list `Loopback`).
+2. Put the Soloist binary in a folder such as
+   `/mnt/mmcblk0p2/tce/soloist/bin/`, and the shim in
+   `/mnt/mmcblk0p2/tce/soloist/shim/`.
+3. Open the Soloist Connect settings page, check the paths, paste your API key
+   into **API key**, Save, and press Start.
+4. Open *My Apps → Soloist Connect* on your player (or save the
+   "Spotify (Soloist Connect)" item as a favourite), select the device in the
+   Spotify app and press play.
+
+If you upgrade from a version that used WaveInput, the old `wavin:` favourite
+is no longer needed; use the app or the new favourite instead.
+
+## Bit-perfect playback
+
+Set the Spotify volume to 100 % and switch audio normalisation off in the
+Spotify app; control the volume in LMS or on your amplifier.
+
+## Troubleshooting drop-outs
+
+Keep "Write audio diagnostics" and the stall watchdog on, and after a drop-out
+run:
+
+```
+grep -A8 -E -- "--- stall|--- overrun" <your Soloist folder>/soloist.log
+```
+
+Each overrun is marked with whether an LMS stall preceded it; stall entries
+include the duration, CPU and iowait and the code LMS was busy in. See
+[`Soloist/README.md`](Soloist/README.md) for details.
 
 ## Known limitations
 
-- **Soloist builds expire 90 days after their build date.** Download a new
-  build when Soloist stops starting.
-- WaveInput captures at 16-bit/44.1 kHz, so this is CD quality, not 24-bit.
+- Soloist builds expire 90 days after their build date. Download a new build
+  when Soloist stops starting, copy it over the old binary and press Restart.
+- Spotify delivers decoded audio of unknown original bit depth; the 24-bit
+  FLAC is the transport format, not a claim about the source.
 - Volume is controlled by LMS and your player, not by the Spotify app.
 - A short gap can occur when skipping tracks in the Spotify app.
+
+## Changes
+
+See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Credits
 
 - Pulse shim and research on the Soloist WebSocket:
   [foonerd/alsa_soloist_connect](https://github.com/foonerd/alsa_soloist_connect) (MIT)
-- [SpotOn](https://github.com/stiefenm/spoton) for LMS transport handling ideas
+- SpotOn for LMS transport handling ideas
 
 Spotify and Soloist are trademarks or products of Spotify AB. This project is
 not affiliated with or endorsed by Spotify.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). **Never post your API key or unredacted logs in
-public issues.**
+MIT, see `LICENSE`. Never post your API key or unredacted logs in public issues.
