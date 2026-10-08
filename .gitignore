@@ -1,0 +1,10 @@
+# Never commit secrets, binaries or logs
+api-key
+*.key
+soloist
+soloist.log*
+soloist.pid
+libpulse.so*
+dist/
+.DS_Store
+._*
