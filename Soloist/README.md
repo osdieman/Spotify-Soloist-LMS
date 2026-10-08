@@ -121,6 +121,11 @@ logged. To collect everything:
 
     grep -A8 -E -- "--- stall|--- overrun" /mnt/mmcblk0p2/tce/soloist-prototype/soloist.log
 
+Soloist `error` events are logged as `--- soloist error …` lines (each
+distinct message at most once a minute). Lines from the plugin itself are
+written through a small helper process, so a busy SD card can never hold LMS
+up while logging.
+
 The call stack is taken with a one-shot SIGALRM that is only armed for the
 moment a stall is already happening, with SA_RESTART so it does not cut
 blocking reads and writes short. If you prefer, choose "On" (duration only)

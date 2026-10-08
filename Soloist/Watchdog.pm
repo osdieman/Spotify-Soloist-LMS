@@ -325,14 +325,13 @@ sub _logPath {
     return $path && $path =~ m{\A/} ? $path : undef;
 }
 
+# Through the non-blocking log writer: an SD-card write must never be able
+# to stall LMS, least of all from the watchdog. Our own lines may be scanned
+# again later; they never contain arecord's "overrun!!!".
 sub _appendLog {
     my ($text) = @_;
-    my $path = _logPath() or return;
-    open my $fh, '>>', $path or return;
-    print {$fh} $text;
-    close $fh;
-    # Our own lines may be scanned again later; they never contain
-    # arecord's "overrun!!!", so they are not mistaken for overruns.
+    require Plugins::Soloist::LogWriter;
+    Plugins::Soloist::LogWriter->write($text);
 }
 
 sub _scanLog {

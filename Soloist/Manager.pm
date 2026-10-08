@@ -110,6 +110,9 @@ sub start {
     # Keep the log from growing without bound on the SD card.
     if (-f $p{log} && -s _ > LOG_MAX_BYTES) {
         rename $p{log}, "$p{log}.1";
+        # The log writer's cat still appends to the renamed file; restart it.
+        require Plugins::Soloist::LogWriter;
+        Plugins::Soloist::LogWriter->reopen();
     }
     open my $logfh, '>>', $p{log}
         or return _fail("Cannot open Soloist log $p{log}: $!");

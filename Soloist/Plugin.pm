@@ -37,6 +37,8 @@ my %lastTransportAt;
 my %suppressTransportUntil;
 my $autoStartAttempts = 0;
 my %appStartedAt;              # per LMS player id: last app-triggered start
+my %coverCachedFor;            # url => cover already in the LMS cache
+my %lastErrorLogged;           # Soloist error text => time last logged
 
 use constant SOURCE_URL => 'soloist:connect';
 
@@ -117,6 +119,8 @@ sub shutdownPlugin {
     Slim::Utils::Timers::killTimers($class, \&_resumeLmsForSpotify);
     require Plugins::Soloist::Watchdog;
     Plugins::Soloist::Watchdog->stop();
+    require Plugins::Soloist::LogWriter;
+    Plugins::Soloist::LogWriter->stop();
     _removeJumpIntercept();
     require Plugins::Soloist::Manager;
     Plugins::Soloist::Manager->stop();
@@ -132,6 +136,8 @@ sub shutdownPlugin {
     %lastTransportAt = ();
     %suppressTransportUntil = ();
     %appStartedAt = ();
+    %coverCachedFor = ();
+    %lastErrorLogged = ();
     $initialized = 0;
 }
 
@@ -314,8 +320,19 @@ sub sourceMetadata {
     my $meta = $master ? $master->pluginData('soloistMetadata') : undef;
     return unless ref($meta) eq 'HASH' && ($meta->{url} || '') eq $url;
     return unless _isActiveSource($master);
-    $metadataCache->set("remote_image_$url", $meta->{cover}, 3600) if $meta->{cover};
+    # LMS's cache is an SQLite file on the SD card. This function runs on every
+    # status poll (about once a second per UI); writing each time stalled LMS
+    # for seconds when the card was busy. Only write when the cover changed.
+    _cacheCover($url, $meta->{cover});
     return $meta;
+}
+
+sub _cacheCover {
+    my ($url, $cover) = @_;
+    return unless $cover && defined $url;
+    return if ($coverCachedFor{$url} || '') eq $cover;
+    $coverCachedFor{$url} = $cover;
+    $metadataCache->set("remote_image_$url", $cover, 3600);
 }
 
 # ---------------------------------------------------------------------------
@@ -490,6 +507,7 @@ sub handleSoloistEvent {
     return unless ref($event) eq 'HASH';
     my $type = $event->{type} || '';
     Plugins::Soloist::Watchdog->mark("Soloist event $type");
+    _logSoloistError($event) if $type eq 'error';
 
     # Many events omit is_active; only trust it when present.
     my $active = _boolField($event->{is_active});
@@ -584,6 +602,21 @@ sub handleSoloistEvent {
     _applySoloistMetadata($client, $meta);
 }
 
+# Soloist error events were invisible so far. Log their content, each
+# distinct message at most once a minute.
+sub _logSoloistError {
+    my ($event) = @_;
+    my $text = eval { JSON::XS->new->canonical->encode($event) } || 'unreadable error event';
+    $text = substr($text, 0, 400) . '...' if length $text > 400;
+    my $now = time();
+    return if ($lastErrorLogged{$text} || 0) > $now - 60;
+    %lastErrorLogged = () if keys %lastErrorLogged > 50;
+    $lastErrorLogged{$text} = $now;
+    $log->warn("Soloist reported an error: $text");
+    require Plugins::Soloist::LogWriter;
+    Plugins::Soloist::LogWriter->write('--- soloist error ' . localtime() . ": $text\n");
+}
+
 # When Spotify starts playing on this Connect device, make sure the LMS player
 # is actually streaming the Soloist source. Never interrupts another source
 # that is currently playing.
@@ -671,9 +704,7 @@ sub _applySoloistMetadata {
     $client->pluginData(soloistMetadata => {
         %{$meta}, displayTitle => $display, url => $logicalUrl || '',
     });
-    for my $url (grep { defined $_ && length $_ } ($logicalUrl, $streamUrl)) {
-        $metadataCache->set("remote_image_$url", $cover, 3600) if $cover;
-    }
+    _cacheCover($_, $cover) for grep { defined $_ && length $_ } ($logicalUrl, $streamUrl);
     eval {
         require Slim::Music::Info;
         # LMS caches the menu/favourite name as the URL title, so replace
