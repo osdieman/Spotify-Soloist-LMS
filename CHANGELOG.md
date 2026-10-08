@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.30
+
+### New
+- **Keep the delay low.** The live source never plays faster than real time,
+  so every LMS hiccup or pause added permanent delay (Next took 12 s). The
+  plugin now measures the delay Spotify → player and restarts the stream to
+  drop the backlog: on a skip (over 2 s), when resuming after a pause, and at
+  a track change when it is over 10 s. The delay is shown on the settings page
+  and in the app.
+- **What reaches the DAC:** for a squeezelite on the same machine, the LMS
+  format field shows the live ALSA format at the DAC, e.g.
+  `Spotify → FLAC 24-bit/44.1 kHz → R2R 32-bit/44.1 kHz`.
+- **Expired builds are recognised:** Soloist exit code 10 gives a clear
+  message on the settings page and in the app.
+
+### Changed
+- The playback state is only polled while Soloist is logged in to Spotify;
+  before that the plugin only checks the login state, which stops the
+  "command requires authentication" errors.
+- Covers are passed to LMS at about 300 px instead of 640 px, so LMS's image
+  cache grows less.
+- New installs keep Soloist's cache in `/tmp/soloist-cache` (RAM).
+
 ## 0.1.29
 
 ### Fixed
