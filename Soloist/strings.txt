@@ -255,3 +255,21 @@ PLUGIN_SOLOIST_WATCHDOG_COUNT
 
 PLUGIN_SOLOIST_WATCHDOG_LAST
 	EN	Last stall
+
+PLUGIN_SOLOIST_DELAY
+	EN	Delay to the player: %.1f s
+
+PLUGIN_SOLOIST_DELAY_LABEL
+	EN	Delay Spotify to player
+
+PLUGIN_SOLOIST_KEEP_DELAY
+	EN	Keep the delay low
+
+PLUGIN_SOLOIST_KEEP_DELAY_DESC
+	EN	The Spotify source is live, so any backlog (after an LMS hiccup or a pause) stays as extra delay and makes Next and Pause react late. With this on, the plugin restarts the stream to drop the backlog: on a skip when the delay is over 2 s, when resuming after a pause, and at a track change when the delay is over 10 s.
+
+PLUGIN_SOLOIST_EXPIRED_SHORT
+	EN	build expired
+
+PLUGIN_SOLOIST_EXPIRED_LONG
+	EN	This Soloist build has expired (Soloist exit code 10). Download a newer build, copy it over the old binary and press Start.

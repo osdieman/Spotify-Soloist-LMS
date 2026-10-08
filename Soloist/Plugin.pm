@@ -38,6 +38,10 @@ my %suppressTransportUntil;
 my $autoStartAttempts = 0;
 my %appStartedAt;              # per LMS player id: last app-triggered start
 my %coverCachedFor;            # url => cover already in the LMS cache
+my %captureStartedAt;          # player id => when its capture started
+my %lastFlushAt;               # player id => last stream restart
+my %pausedAt;                  # player id => when LMS paused the source
+my $lastTrackPositionAt = 0;   # time the last position in $lastSoloistMetadata was valid
 my %lastErrorLogged;           # Soloist error text => time last logged
 
 use constant SOURCE_URL => 'soloist:connect';
@@ -52,7 +56,9 @@ sub initPlugin {
         playbackDevice  => 'hw:CARD=Loopback,DEV=0,SUBDEV=0',
         deviceName      => 'Soloist Connect',
         dataDir         => '/mnt/mmcblk0p2/tce/soloist-prototype/data',
-        cacheDir        => '/mnt/mmcblk0p2/tce/soloist-prototype/cache',
+        # Soloist's audio cache is rewritten constantly; on the SD card it
+        # competed with LMS for I/O. /tmp is RAM on piCorePlayer.
+        cacheDir        => '/tmp/soloist-cache',
         wsAddress       => '127.0.0.1:9878',
         maxTlengthMs    => 500,
         initialVolume   => 100,
@@ -63,6 +69,7 @@ sub initPlugin {
         shimDiagnostics => 0,
         stallWatchdog   => 2,      # 0 off, 1 duration, 2 duration + call stack
         appStartsPlayback => 1,
+        keepDelayLow    => 1,
     });
 
     require Plugins::Soloist::Watchdog;
@@ -137,6 +144,9 @@ sub shutdownPlugin {
     %suppressTransportUntil = ();
     %appStartedAt = ();
     %coverCachedFor = ();
+    %captureStartedAt = ();
+    %lastFlushAt = ();
+    %pausedAt = ();
     %lastErrorLogged = ();
     $initialized = 0;
 }
@@ -207,8 +217,12 @@ sub _appItems {
         : $state->{stopping} ? string('PLUGIN_SOLOIST_STOPPING')
         : $state->{running} ? string('PLUGIN_SOLOIST_RUNNING')
         : string('PLUGIN_SOLOIST_STOPPED');
+    $service = string('PLUGIN_SOLOIST_EXPIRED_SHORT') if $state->{expired};
     push @items, { name => string('PLUGIN_SOLOIST_NAME') . ': ' . $service, type => 'text' };
     push @items, { name => _spotifyStatusText($state), type => 'text' };
+    if ($client && defined(my $delay = __PACKAGE__->delaySeconds($client))) {
+        push @items, { name => sprintf(string('PLUGIN_SOLOIST_DELAY'), $delay), type => 'text' };
+    }
 
     my $key = Plugins::Soloist::Manager->keyStatus();
     if ($key->{state} ne 'ok' && $key->{state} ne 'permissions') {
@@ -389,6 +403,7 @@ sub _playlistJumpCommand {
             : $index =~ /\A\+/ ? ('skip_next') : ('skip_prev');
         require Plugins::Soloist::Control;
         if (Plugins::Soloist::Control->send($action, $extra)) {
+            _flushIfDelayed($master, "LMS $action", 2);
             $log->info("LMS $index forwarded to Soloist as $action (LMS stream kept open)");
             $request->setStatusDone();
             return;
@@ -554,7 +569,8 @@ sub handleSoloistEvent {
     my $cover = '';
     my $visual = ref($decorations->{visual_identity}) eq 'HASH' ? $decorations->{visual_identity} : {};
     my $covers = ref($visual->{cover}) eq 'ARRAY' ? $visual->{cover} : [];
-    for my $size (qw(large xlarge default small)) {
+    # ~300 px is plenty for LMS UIs; larger sizes only grow LMS's image cache.
+    for my $size (qw(default large small xlarge)) {
         my ($match) = grep { ref($_) eq 'HASH' && ($_->{size} || '') eq $size && $_->{url} } @{$covers};
         if ($match) { $cover = $match->{url}; last; }
     }
@@ -584,7 +600,10 @@ sub handleSoloistEvent {
             if !defined $meta->{position} && defined $lastSoloistMetadata->{position};
     }
     return unless length($meta->{title}) || length($meta->{artist});
+    my $previous = $lastSoloistMetadata;
+    my $previousAt = $lastTrackPositionAt;
     $lastSoloistMetadata = $meta;
+    $lastTrackPositionAt = Time::HiRes::time() if defined $meta->{position};
 
     if (main::DEBUGLOG && $log->is_debug) {
         my $signature = join("\x1f", $meta->{uri}, $meta->{title}, $meta->{artist},
@@ -599,7 +618,66 @@ sub handleSoloistEvent {
 
     my $client = _masterClient($activeSourceClient);
     return unless $client && _isActiveSource($client);
+
+    # A new track in Spotify. If the player is lagging behind, this is the
+    # moment to drop the backlog: right away for a skip (the rest of the old
+    # track isn't wanted), at a natural track end only when the delay is big.
+    if (ref($previous) eq 'HASH' && $previous->{uri} && $meta->{uri}
+        && $meta->{uri} ne $previous->{uri}) {
+        my $at = $previous->{position};
+        $at += Time::HiRes::time() - $previousAt if defined $at && $previous->{playing} && $previousAt;
+        my $natural = defined $at && $previous->{duration} && $at >= $previous->{duration} - 4;
+        _flushIfDelayed($client, $natural ? 'track change' : 'Spotify skip', $natural ? 10 : 2);
+    }
     _applySoloistMetadata($client, $meta);
+}
+
+# ---------------------------------------------------------------------------
+# Delay between Spotify and the player
+#
+# The source is live: audio arrives in real time and can never be played
+# faster. Whatever piles up (after an LMS stall, a pause, clock drift) stays
+# as extra delay, so Next or Pause seem to react seconds late. The delay is
+# measured as time since the capture started minus what the player has
+# played of this stream. Restarting the stream drops the backlog.
+
+sub captureStarted {
+    my ($class, $client) = @_;
+    $client = _masterClient($client) or return;
+    $captureStartedAt{$client->id} = Time::HiRes::time();
+}
+
+sub delaySeconds {
+    my ($class, $client) = @_;
+    $client = _masterClient($client) or return;
+    return unless _isSoloistSource($client) && eval { $client->isPlaying() };
+    my $start = $captureStartedAt{$client->id} or return;
+    my $played = eval { $client->songElapsedSeconds() };
+    return unless defined $played && $played > 0;
+    my $delay = Time::HiRes::time() - $start - $played;
+    return $delay < 0 ? 0 : $delay;
+}
+
+sub _flushIfDelayed {
+    my ($client, $reason, $threshold) = @_;
+    return unless $prefs->get('keepDelayLow');
+    my $delay = __PACKAGE__->delaySeconds($client);
+    return unless defined $delay && $delay > $threshold;
+    _flushStream($client, sprintf('%s, delay %.1f s', $reason, $delay));
+}
+
+sub _flushStream {
+    my ($client, $reason) = @_;
+    $client = _masterClient($client) or return;
+    my $now = Time::HiRes::time();
+    return if $lastFlushAt{$client->id} && $now - $lastFlushAt{$client->id} < 5;
+    $lastFlushAt{$client->id} = $now;
+    $log->info("Restarting the Soloist stream on " . $client->name . " to drop the backlog ($reason)");
+    Plugins::Soloist::Watchdog->mark("stream restart ($reason)");
+    $suppressTransportUntil{$client->id} = $now + 4;
+    $sourceStartedAt{$client->id} = $now;
+    delete $captureStartedAt{$client->id};
+    $client->execute(['playlist', 'play', SOURCE_URL, string('PLUGIN_SOLOIST_SOURCE_ITEM')]);
 }
 
 # Soloist error events were invisible so far. Log their content, each
@@ -744,6 +822,16 @@ sub _sendTransport {
     my $now = Time::HiRes::time();
     # Our own auto-resume issues LMS play commands; don't echo them back.
     return 1 if ($suppressTransportUntil{$client->id} || 0) > $now;
+    # While LMS was paused the capture kept running; that audio would now
+    # play first. Resume with a fresh stream instead.
+    if ($command eq 'pause') {
+        $pausedAt{$client->id} = $now;
+    }
+    elsif ($command eq 'play' && $pausedAt{$client->id}) {
+        my $paused = $now - delete $pausedAt{$client->id};
+        _flushStream($client, sprintf('resume after %.0f s pause', $paused))
+            if $paused > 2 && $prefs->get('keepDelayLow');
+    }
     unless (_sessionIsHere()) {
         $log->info("Not forwarding $command: the Spotify session is on another device");
         return 0;

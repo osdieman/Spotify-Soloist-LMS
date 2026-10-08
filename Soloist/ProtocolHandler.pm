@@ -52,6 +52,7 @@ sub new {
         if Plugins::Soloist::Watchdog->can('mark');
     Slim::Music::Info::setContentType($url, CONTENT_TYPE);
     _endStaleCapture(captureDevice());
+    Plugins::Soloist::Plugin->captureStarted($client) if Plugins::Soloist::Plugin->can('captureStarted');
     my $quality = preferences('server')->client($client)->get('lameQuality');
     my $command = Slim::Player::TranscodingHelper::tokenizeConvertCommand2(
         $transcoder, captureDevice(), $url, 1, $quality);
@@ -150,13 +151,20 @@ sub getMetadataFor {
     my ($class, $client, $url) = @_;
 
     my $format = $client ? (eval { $client->streamingSong()->streamformat() } || '') : '';
-    # Spotify delivers decoded float audio of unknown original depth; what
-    # we can state is the capture/transport format, so say exactly that.
+    # Spotify delivers decoded float audio of unknown original depth; what we
+    # can state is the transport format, and for a squeezelite on this same
+    # machine the live format at its DAC (read from ALSA).
+    my $transport = $format eq 'flc' ? 'FLAC 24-bit/44.1 kHz'
+        : $format eq 'pcm' ? 'PCM 16-bit/44.1 kHz' : '';
+    my $dac;
+    if ($transport && $client) {
+        require Plugins::Soloist::Output;
+        $dac = Plugins::Soloist::Output->describe($client);
+    }
     my %result = (
         title => 'Soloist Connect',
         type  => 'Spotify (Soloist Connect)',
-        ($format eq 'flc' ? (bitrate => "Spotify \x{2192} FLAC 24-bit")
-            : $format eq 'pcm' ? (bitrate => "Spotify \x{2192} PCM 16-bit") : ()),
+        ($transport ? (bitrate => join(" \x{2192} ", 'Spotify', $transport, ($dac ? $dac : ()))) : ()),
     );
 
     my $meta = Plugins::Soloist::Plugin->sourceMetadata($client, $url);

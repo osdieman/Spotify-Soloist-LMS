@@ -33,7 +33,9 @@ my $phasePid = 0;
 my $deadline = 0;
 my $killSent = 0;
 my $startAfterStop = 0;
-my $phaseSid = 0;            # session of the Soloist being stopped
+my $phaseSid = 0;
+my $lastExitCode;            # exit code of the last Soloist we started
+use constant EXIT_EXPIRED => 10;   # Soloist: "build expired"            # session of the Soloist being stopped
 my $stage = '';              # stopping: main | helpers
 my %helperTermed;            # pid => 1 once TERM was sent
 
@@ -68,10 +70,12 @@ sub status {
         starting => $phase eq 'starting' ? 1 : 0,
         stopping => $phase eq 'stopping' ? 1 : 0,
         helpers  => [ map { _procInfo($_) || { pid => $_ } } _relatedPids($pid) ],
+        expired  => (!$pid && defined $lastExitCode && $lastExitCode == EXIT_EXPIRED) ? 1 : 0,
     };
 }
 
 sub start {
+    $lastExitCode = undef;
     $lastError = '';
     return 1 if $phase eq 'starting';
     if ($phase eq 'stopping') { $startAfterStop = 1; return 1; }
@@ -189,6 +193,10 @@ sub _checkStarted {
     unless (_alive($phasePid)) {
         $phase = 'idle';
         unlink $p{pid};
+        if (defined $lastExitCode && $lastExitCode == EXIT_EXPIRED) {
+            _fail('This Soloist build has expired (exit code 10). Download a newer build, copy it over the old binary and press Start.');
+            return;
+        }
         my $detail = _lastLines(5);
         _fail('Soloist exited during startup' . ($detail ? "; last log: $detail" : ''));
         return;
@@ -481,7 +489,10 @@ sub _reap {
     return unless $childPid;
     my $r = waitpid($childPid, WNOHANG);
     if ($r == $childPid) {
-        $log->info("Soloist pid=$childPid exited with status " . ($? >> 8));
+        $lastExitCode = $? >> 8;
+        $log->info("Soloist pid=$childPid exited with status $lastExitCode");
+        $log->error('Soloist reports that this build has expired (exit code 10); install a newer Soloist build')
+            if $lastExitCode == EXIT_EXPIRED;
         $childPid = 0;
     }
     elsif ($r == -1) {

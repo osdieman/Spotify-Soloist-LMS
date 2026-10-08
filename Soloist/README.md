@@ -138,6 +138,30 @@ or "Off".
 "Write audio shim diagnostics" adds the shim's ALSA cork/flush/xrun lines
 and arecord's capture overruns.
 
+## Delay and "Keep the delay low"
+
+The Spotify source is live: audio arrives in real time and can never be
+played faster. Anything that piles up (after an LMS hiccup, a pause, slow
+clock drift) stays as extra delay, so Next and Pause seem to react late.
+The plugin measures this delay (shown on the settings page and in the app)
+and, with "Keep the delay low" on, restarts the stream to drop the backlog:
+on a skip from Spotify or LMS when the delay is over 2 s, when resuming after
+a pause, and at a natural track change when it is over 10 s.
+
+## What reaches the DAC
+
+For a squeezelite running on the same machine as LMS, the format field in LMS
+shows the whole chain, read live from ALSA, for example
+`Spotify → FLAC 24-bit/44.1 kHz → R2R 32-bit/44.1 kHz`. A 24-bit stream in a
+32-bit container is normal and lossless. Players elsewhere on the network show
+the transport format only.
+
+## Soloist cache
+
+New installs keep Soloist's audio cache in `/tmp/soloist-cache` (RAM on
+piCorePlayer). On the SD card it was rewritten constantly and competed with
+LMS for I/O. The data folder (with the Spotify login) stays on the SD card.
+
 ## Stop and helper processes
 
 Soloist starts a helper process that can outlive it (it then shows PPid 1).
@@ -157,11 +181,12 @@ use a new key.
 
 ## Renewal
 
-Soloist needs renewing after about 90 days. What exactly expires (the binary,
-the key or the login) is still being established; until then:
+Soloist builds expire 90 days after their build date.
 
-- If Soloist stops and its log mentions an expired, invalid or revoked key or
-  licence, the settings page says so in red.
+- Soloist builds expire 90 days after their build date. An expired build
+  exits with code 10; the settings page and the app then say so in red.
+- If Soloist stops and its log mentions an invalid or revoked key, the
+  settings page says so in red.
 - If the key carries a readable expiry date (a JWT with an `exp` claim), the
   settings page shows it and warns from 14 days before.
 

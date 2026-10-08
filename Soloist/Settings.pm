@@ -20,7 +20,7 @@ sub name { Slim::Web::HTTP::CSRF->protectName('PLUGIN_SOLOIST_NAME'); }
 sub needsClient { 0; }
 sub page { Slim::Web::HTTP::CSRF->protectURI($page); }
 sub prefs {
-    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback stallWatchdog
+    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow stallWatchdog
         maxTlengthMs initialVolume cacheSize captureBufferMs), @TEXT_PREFS);
 }
 
@@ -33,7 +33,7 @@ sub handler {
 
     if ($paramRef->{saveSettings}) {
         # HTML checkboxes are omitted when unchecked; normalize explicitly.
-        for my $name (qw(autoStart shimDiagnostics appStartsPlayback)) {
+        for my $name (qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow)) {
             $paramRef->{"pref_$name"} = $paramRef->{"pref_$name"} ? 1 : 0;
         }
         for my $name (@TEXT_PREFS) {
@@ -127,6 +127,14 @@ sub handler {
     $paramRef->{serviceError}    = Plugins::Soloist::Manager->lastError();
     $paramRef->{logTail}         = Plugins::Soloist::Manager->logTail();
     $paramRef->{helpers}         = $state->{helpers} || [];
+    $paramRef->{serviceExpired}  = $state->{expired};
+    require Plugins::Soloist::Plugin;
+    for my $client (Slim::Player::Client::clients()) {
+        my $delay = Plugins::Soloist::Plugin->delaySeconds($client);
+        next unless defined $delay;
+        $paramRef->{delayText} = sprintf('%.1f s (%s)', $delay, $client->name);
+        last;
+    }
     $paramRef->{keyStatus}       = Plugins::Soloist::Manager->keyStatus();
     $paramRef->{expiryHint}      = $state->{running} ? '' : Plugins::Soloist::Manager->expiryHint();
     require Plugins::Soloist::Watchdog;

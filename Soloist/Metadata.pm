@@ -43,6 +43,8 @@ my $input = '';
 my $fragment = '';
 my $fragmentOpcode = 0;
 my $retryDelay = 2;
+my $loggedIn;            # from auth_state; undef = not known yet
+my $authPolls = 0;
 
 sub start {
     $wanted = 1;
@@ -198,16 +200,52 @@ sub _abortPending {
     $output = '';
 }
 
+# get_state needs a logged-in Spotify session; before that, Soloist answers
+# every poll with an "error" event. Until auth_state says logged_in, only ask
+# for the auth state now and then (Soloist also pushes it when it changes).
 sub _requestState {
     return unless $socket;
-    Plugins::Soloist::Watchdog->mark('Soloist get_state request');
-    unless (_sendFrame(0x1, encode_json({ type => 'command', command => 'get_state' }))) {
+    my $command = 'get_state';
+    if (defined $loggedIn && !$loggedIn) {
+        $command = 'get_auth_state';
+        $authPolls++;
+        if ($authPolls % 10) {
+            _scheduleState();
+            return;
+        }
+    }
+    Plugins::Soloist::Watchdog->mark("Soloist $command request");
+    unless (_sendFrame(0x1, encode_json({ type => 'command', command => $command }))) {
         _disconnected();
         return;
     }
+    _scheduleState();
+}
+
+sub _scheduleState {
     Slim::Utils::Timers::killTimers(__PACKAGE__, \&_requestState);
     Slim::Utils::Timers::setTimer(__PACKAGE__, Time::HiRes::time() + STATE_INTERVAL, \&_requestState);
 }
+
+sub _noteAuth {
+    my ($event) = @_;
+    my $type = $event->{type} || '';
+    if ($type eq 'auth_state' && exists $event->{logged_in}) {
+        my $now = $event->{logged_in} && $event->{logged_in} ne 'false' ? 1 : 0;
+        if (!defined $loggedIn || $now != $loggedIn) {
+            $log->info('Soloist ' . ($now ? 'is logged in to Spotify' : 'is waiting for a Spotify login'));
+        }
+        my $was = $loggedIn;
+        $loggedIn = $now;
+        $authPolls = 0;
+        _requestState() if $now && defined $was && !$was;     # refresh at once
+    }
+    elsif ($type eq 'error' && ($event->{message} || '') =~ /requires authentication/i) {
+        $loggedIn = 0;
+    }
+}
+
+sub loggedIn { return $loggedIn; }
 
 sub _address {
     my ($host, $port) = split /:/, ($prefs->get('wsAddress') || '127.0.0.1:9878'), 2;
@@ -291,6 +329,7 @@ sub _parseFrames {
         next unless $messageOpcode == 0x1;
         my $event = eval { decode_json($message) };
         next unless ref($event) eq 'HASH';
+        _noteAuth($event);
         eval { Plugins::Soloist::Plugin->handleSoloistEvent($event); 1 }
             or $log->warn("Could not apply Soloist event: $@");
     }
@@ -368,6 +407,8 @@ sub _randomBytes {
 }
 
 sub _closeSocket {
+    $loggedIn = undef;
+    $authPolls = 0;
     if ($socket) {
         Slim::Networking::Select::removeRead($socket);
         Slim::Networking::Select::removeWrite($socket);

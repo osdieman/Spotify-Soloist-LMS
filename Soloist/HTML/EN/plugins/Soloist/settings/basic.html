@@ -23,6 +23,12 @@
         &nbsp; <a href="[% webroot %]plugins/Soloist/settings/basic.html">[% 'PLUGIN_SOLOIST_REFRESH' | string %]</a>
       [% END %]
     </p>
+    [% IF serviceExpired %]
+    <p style="color:#d9534f"><strong>[% 'PLUGIN_SOLOIST_EXPIRED_LONG' | string %]</strong></p>
+    [% END %]
+    [% IF delayText %]
+    <p style="opacity:.85">[% 'PLUGIN_SOLOIST_DELAY_LABEL' | string %]: [% delayText | html %]</p>
+    [% END %]
     [% IF helpers.size %]
     <p style="opacity:.85">[% 'PLUGIN_SOLOIST_HELPERS' | string %]:
       [% FOREACH h IN helpers %][% h.pid | html %] ([% h.comm | html %], ppid [% h.ppid | html %])[% UNLESS loop.last %], [% END %][% END %]
@@ -76,6 +82,9 @@
         <option value="[% p.id | html %]" [% IF prefs.pref_autoPlayPlayer == p.id %]selected="selected"[% END %]>[% p.name | html %]</option>
       [% END %]
     </select>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_KEEP_DELAY" desc="PLUGIN_SOLOIST_KEEP_DELAY_DESC" %]
+    <input type="checkbox" class="stdedit" name="pref_keepDelayLow" id="pref_keepDelayLow" value="1" [% IF prefs.pref_keepDelayLow %]checked="checked"[% END %]/>
   [% END %]
   [% WRAPPER setting title="PLUGIN_SOLOIST_APP_STARTS" desc="PLUGIN_SOLOIST_APP_STARTS_DESC" %]
     <input type="checkbox" class="stdedit" name="pref_appStartsPlayback" id="pref_appStartsPlayback" value="1" [% IF prefs.pref_appStartsPlayback %]checked="checked"[% END %]/>
