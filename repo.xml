@@ -12,12 +12,12 @@
     <plugins>
         <plugin
             name="Soloist"
-            version="0.1.30"
+            version="0.1.31"
             target="unix"
             minTarget="8.0"
             maxTarget="*"
-            sha="516b24b76e712998c7cf43db74ed1fd8edc76ccc"
-            url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.1.30/Soloist-LMS-0.1.30.zip"
+            sha="33f3ae0ef32755ebf4110b30a80d96d45c17b95e"
+            url="https://github.com/osdieman/Spotify-Soloist-LMS/releases/download/v0.1.31/Soloist-LMS-0.1.31.zip"
             category="musicservices"
             creator="Oscar Van Es"
         >
