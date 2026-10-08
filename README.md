@@ -96,8 +96,8 @@ include the duration, CPU and iowait and the code LMS was busy in. See
   when Soloist stops starting, copy it over the old binary and press Restart.
 - Spotify delivers decoded audio of unknown original bit depth; the 24-bit
   FLAC is the transport format, not a claim about the source.
-- Volume is controlled by LMS and your player, not by the Spotify app.
-- A short gap can occur when skipping tracks in the Spotify app.
+- Volume can be controlled by LMS and your player as also Spotify app.
+
 
 ## Changes
 
