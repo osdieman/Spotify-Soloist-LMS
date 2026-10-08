@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.31
+
+### New
+- **The Spotify stream is measured.** Soloist outputs float, so its format
+  says nothing about the source. The capture now runs at 32-bit through a
+  small filter that checks which bits the audio uses, and LMS shows
+  `Spotify LOSSLESS 16-bit`, `Spotify LOSSLESS 24-bit` or
+  `Spotify NOT BIT-PERFECT` (lossy stream, or volume/normalisation changed the
+  samples). Setting: "Measure the Spotify stream" (on by default).
+
+### Changed
+- Format label: the DAC is named by its product name
+  (`… → FLAC → FiiO K11 R2R 24-bit/44.1 kHz`); the transport is just "FLAC".
+
 ## 0.1.30
 
 ### New
