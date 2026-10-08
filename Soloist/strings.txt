@@ -1,0 +1,116 @@
+PLUGIN_SOLOIST_NAME
+	EN	Soloist Connect
+
+PLUGIN_SOLOIST_DESC
+	EN	Spotify Connect endpoint for LMS using Spotify Soloist, an ALSA Loopback and WaveInput
+
+PLUGIN_SOLOIST_SERVICE
+	EN	Soloist service
+
+PLUGIN_SOLOIST_RUNNING
+	EN	Running
+
+PLUGIN_SOLOIST_STOPPED
+	EN	Stopped
+
+PLUGIN_SOLOIST_STARTING
+	EN	Starting…
+
+PLUGIN_SOLOIST_STOPPING
+	EN	Stopping…
+
+PLUGIN_SOLOIST_REFRESH
+	EN	Refresh status
+
+PLUGIN_SOLOIST_PID
+	EN	Process ID
+
+PLUGIN_SOLOIST_START
+	EN	Start
+
+PLUGIN_SOLOIST_STOP
+	EN	Stop
+
+PLUGIN_SOLOIST_RESTART
+	EN	Restart
+
+PLUGIN_SOLOIST_CONTROLS
+	EN	Spotify controls
+
+PLUGIN_SOLOIST_PREV
+	EN	Previous
+
+PLUGIN_SOLOIST_PLAY
+	EN	Play
+
+PLUGIN_SOLOIST_PAUSE
+	EN	Pause
+
+PLUGIN_SOLOIST_NEXT
+	EN	Next
+
+PLUGIN_SOLOIST_LMS
+	EN	LMS playback
+
+PLUGIN_SOLOIST_AUTOPLAY_PLAYER
+	EN	Start this player when Spotify plays
+
+PLUGIN_SOLOIST_AUTOPLAY_PLAYER_DESC
+	EN	When Spotify starts playing on this Connect device and the chosen player is idle, LMS starts the WaveInput source on it. A player that is busy with another source is never interrupted. With "Off", a player that was already on the Spotify source is still resumed.
+
+PLUGIN_SOLOIST_AUTOPLAY_NONE
+	EN	Off
+
+PLUGIN_SOLOIST_WAVIN_URL
+	EN	WaveInput source (wavin: URL)
+
+PLUGIN_SOLOIST_PATHS
+	EN	Program and key paths
+
+PLUGIN_SOLOIST_AUDIO
+	EN	Audio and cache settings
+
+PLUGIN_SOLOIST_AUTOSTART
+	EN	Start Soloist automatically when LMS starts
+
+PLUGIN_SOLOIST_DEVICE_NAME
+	EN	Spotify Connect device name
+
+PLUGIN_SOLOIST_BINARY
+	EN	Soloist executable
+
+PLUGIN_SOLOIST_SHIM
+	EN	Pulse shim folder
+
+PLUGIN_SOLOIST_KEY_FILE
+	EN	Private API key file
+
+PLUGIN_SOLOIST_PLAYBACK_DEVICE
+	EN	ALSA playback device
+
+PLUGIN_SOLOIST_WS
+	EN	Local WebSocket address
+
+PLUGIN_SOLOIST_DATA_DIR
+	EN	Soloist data folder
+
+PLUGIN_SOLOIST_CACHE_DIR
+	EN	Soloist cache folder
+
+PLUGIN_SOLOIST_BUFFER
+	EN	Maximum Pulse buffer (ms)
+
+PLUGIN_SOLOIST_INITIAL_VOLUME
+	EN	Initial Soloist volume (0–100)
+
+PLUGIN_SOLOIST_CACHE_SIZE
+	EN	Cache size (MB)
+
+PLUGIN_SOLOIST_SHIM_DIAG
+	EN	Write audio shim diagnostics to the Soloist log
+
+PLUGIN_SOLOIST_SAVE_HINT
+	EN	Save settings, then use Restart to apply changed launch settings.
+
+PLUGIN_SOLOIST_LOG
+	EN	Recent Soloist log

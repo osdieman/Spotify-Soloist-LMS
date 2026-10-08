@@ -1,0 +1,107 @@
+[% PROCESS settings/header.html %]
+
+[%# Pressing Enter in a text field submits the form with its FIRST submit
+    button. Without this, that was "Start". Keep this button first. %]
+<button type="submit" name="saveSettings" value="1" tabindex="-1" aria-hidden="true"
+        style="position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden"></button>
+
+<div style="max-width:900px; margin:0 auto">
+  <section style="padding:14px 18px; margin:12px 0; border:1px solid rgba(128,128,128,.25); border-radius:8px">
+    <h2>[% 'PLUGIN_SOLOIST_SERVICE' | string %]</h2>
+    <p>
+      [% IF serviceStarting %]
+        <strong style="color:#e0a800">● [% 'PLUGIN_SOLOIST_STARTING' | string %]</strong>
+      [% ELSIF serviceStopping %]
+        <strong style="color:#e0a800">● [% 'PLUGIN_SOLOIST_STOPPING' | string %]</strong>
+      [% ELSIF serviceRunning %]
+        <strong style="color:#36b37e">● [% 'PLUGIN_SOLOIST_RUNNING' | string %]</strong>
+        &nbsp; [% 'PLUGIN_SOLOIST_PID' | string %]: [% servicePid | html %]
+      [% ELSE %]
+        <strong style="color:#d9534f">● [% 'PLUGIN_SOLOIST_STOPPED' | string %]</strong>
+      [% END %]
+      [% IF serviceStarting || serviceStopping %]
+        &nbsp; <a href="[% webroot %]plugins/Soloist/settings/basic.html">[% 'PLUGIN_SOLOIST_REFRESH' | string %]</a>
+      [% END %]
+    </p>
+    <p>
+      <button class="submit" type="submit" name="soloistAction" value="start">[% 'PLUGIN_SOLOIST_START' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="stop">[% 'PLUGIN_SOLOIST_STOP' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="restart">[% 'PLUGIN_SOLOIST_RESTART' | string %]</button>
+    </p>
+    <h3>[% 'PLUGIN_SOLOIST_CONTROLS' | string %]</h3>
+    <p>
+      <button class="submit" type="submit" name="soloistAction" value="prev">[% 'PLUGIN_SOLOIST_PREV' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="play">[% 'PLUGIN_SOLOIST_PLAY' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="pause">[% 'PLUGIN_SOLOIST_PAUSE' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="next">[% 'PLUGIN_SOLOIST_NEXT' | string %]</button>
+    </p>
+    [% IF actionMessage %]<p role="status">[% actionMessage | html %]</p>
+    [% ELSIF serviceError %]<p role="status" style="color:#d9534f">[% serviceError | html %]</p>[% END %]
+  </section>
+
+  [% WRAPPER setting title="PLUGIN_SOLOIST_AUTOSTART" desc="" %]
+    <input type="checkbox" class="stdedit" name="pref_autoStart" id="pref_autoStart" value="1" [% IF prefs.pref_autoStart %]checked="checked"[% END %]/>
+  [% END %]
+
+  [% WRAPPER setting title="PLUGIN_SOLOIST_DEVICE_NAME" desc="" %]
+    <input type="text" class="stdedit" name="pref_deviceName" value="[% prefs.pref_deviceName | html %]"/>
+  [% END %]
+
+  <h2>[% 'PLUGIN_SOLOIST_LMS' | string %]</h2>
+  [% WRAPPER setting title="PLUGIN_SOLOIST_AUTOPLAY_PLAYER" desc="PLUGIN_SOLOIST_AUTOPLAY_PLAYER_DESC" %]
+    <select class="stdedit" name="pref_autoPlayPlayer">
+      <option value="" [% IF !prefs.pref_autoPlayPlayer %]selected="selected"[% END %]>[% 'PLUGIN_SOLOIST_AUTOPLAY_NONE' | string %]</option>
+      [% FOREACH p IN players %]
+        <option value="[% p.id | html %]" [% IF prefs.pref_autoPlayPlayer == p.id %]selected="selected"[% END %]>[% p.name | html %]</option>
+      [% END %]
+    </select>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_WAVIN_URL" desc="" %]
+    <input type="text" class="stdedit" name="pref_wavinUrl" value="[% prefs.pref_wavinUrl | html %]"/>
+  [% END %]
+
+  <h2>[% 'PLUGIN_SOLOIST_PATHS' | string %]</h2>
+  [% WRAPPER setting title="PLUGIN_SOLOIST_BINARY" desc="" %]
+    <input type="text" class="stdedit" name="pref_soloistPath" value="[% prefs.pref_soloistPath | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_SHIM" desc="" %]
+    <input type="text" class="stdedit" name="pref_shimDir" value="[% prefs.pref_shimDir | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_KEY_FILE" desc="" %]
+    <input type="text" class="stdedit" name="pref_apiKeyFile" value="[% prefs.pref_apiKeyFile | html %]" autocomplete="off"/>
+  [% END %]
+
+  <h2>[% 'PLUGIN_SOLOIST_AUDIO' | string %]</h2>
+  [% WRAPPER setting title="PLUGIN_SOLOIST_PLAYBACK_DEVICE" desc="" %]
+    <input type="text" class="stdedit" name="pref_playbackDevice" value="[% prefs.pref_playbackDevice | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_WS" desc="" %]
+    <input type="text" class="stdedit" name="pref_wsAddress" value="[% prefs.pref_wsAddress | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_DATA_DIR" desc="" %]
+    <input type="text" class="stdedit" name="pref_dataDir" value="[% prefs.pref_dataDir | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_CACHE_DIR" desc="" %]
+    <input type="text" class="stdedit" name="pref_cacheDir" value="[% prefs.pref_cacheDir | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_BUFFER" desc="" %]
+    <input type="number" min="50" max="5000" class="stdedit" name="pref_maxTlengthMs" value="[% prefs.pref_maxTlengthMs | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_INITIAL_VOLUME" desc="" %]
+    <input type="number" min="0" max="100" class="stdedit" name="pref_initialVolume" value="[% prefs.pref_initialVolume | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_CACHE_SIZE" desc="" %]
+    <input type="number" min="0" max="10000" class="stdedit" name="pref_cacheSize" value="[% prefs.pref_cacheSize | html %]"/>
+  [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_SHIM_DIAG" desc="" %]
+    <input type="checkbox" class="stdedit" name="pref_shimDiagnostics" id="pref_shimDiagnostics" value="1" [% IF prefs.pref_shimDiagnostics %]checked="checked"[% END %]/>
+  [% END %]
+  <p style="opacity:.75">[% 'PLUGIN_SOLOIST_SAVE_HINT' | string %]</p>
+  [% IF logTail %]
+  <details style="margin:16px 0">
+    <summary><strong>[% 'PLUGIN_SOLOIST_LOG' | string %]</strong></summary>
+    <pre style="white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto">[% logTail | html %]</pre>
+  </details>
+  [% END %]
+</div>
+[% PROCESS settings/footer.html %]

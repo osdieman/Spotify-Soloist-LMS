@@ -1,0 +1,18 @@
+<?xml version='1.0' standalone='yes'?>
+<extension>
+	<name>PLUGIN_SOLOIST_NAME</name>
+	<creator>Oscar</creator>
+	<defaultState>enabled</defaultState>
+	<description>PLUGIN_SOLOIST_DESC</description>
+	<category>musicservices</category>
+	<id>8fa08751-19c0-4fe6-9c83-3f572e360102</id>
+	<module>Plugins::Soloist::Plugin</module>
+	<optionsURL>plugins/Soloist/settings/basic.html</optionsURL>
+	<targetApplication>
+		<id>SqueezeCenter</id>
+		<maxVersion>*</maxVersion>
+		<minVersion>8.0</minVersion>
+	</targetApplication>
+	<type>2</type>
+	<version>0.1.26</version>
+</extension>
