@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.37
+
+### New
+- **Soloist updates itself.** Soloist builds stop working 90 days after their
+  build date. Once a day the plugin checks Spotify's official download
+  address (a HEAD request; nothing is downloaded unless the archive changed and
+  is newer than the installed build). A new build is downloaded in the
+  background, unpacked, tested with `soloist --version` (same architecture,
+  newer build), and put in place with the previous one kept as `soloist.prev`.
+  Soloist switches over when nothing has played through it for 10 minutes, or
+  at once if the old build has expired. If the new build doesn't start, the
+  previous one is restored automatically.
+- Settings page: the installed build with its build date and expiry, the
+  update status, a "Check for update" button and an "Update Soloist
+  automatically" setting (on by default).
+
 ## 0.1.36
 
 ### Fixed

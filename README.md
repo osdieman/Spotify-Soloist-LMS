@@ -23,6 +23,9 @@ Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► soloist
   (optional)
 - Start, stop and restart Soloist from the plugin settings page, with autostart
   and a live log view; Stop also ends Soloist's helper process
+- Soloist kept up to date automatically: a new build is downloaded from
+  Spotify, tested, and switched to when nothing is playing (builds expire
+  after 90 days). The settings page shows the installed build and its expiry
 - API key entered on the settings page and stored only in a private key file
   (`chmod 600`), never in the LMS preferences
 - Stall watchdog: logs when the LMS main loop is blocked, with the code it was
@@ -101,8 +104,12 @@ include the duration, CPU and iowait and the code LMS was busy in. See
 
 ## Known limitations
 
-- Soloist builds expire 90 days after their build date. Download a new build
-  when Soloist stops starting, copy it over the old binary and press Restart.
+- Soloist builds expire 90 days after their build date. With "Update Soloist
+  automatically" on (default), the plugin fetches each new build from
+  Spotify's official download address, tests it and switches over when
+  nothing is playing; the previous build is kept and restored if the new one
+  doesn't start. LMS must be allowed to write to the folder of the Soloist
+  executable.
 - Spotify delivers decoded audio of unknown original bit depth; the 24-bit
   FLAC is the transport format, not a claim about the source.
 - Volume can be controlled by LMS and your player as also Spotify app.
