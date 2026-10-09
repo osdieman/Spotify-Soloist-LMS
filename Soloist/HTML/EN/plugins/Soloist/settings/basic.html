@@ -26,6 +26,12 @@
     [% IF serviceExpired %]
     <p style="color:#d9534f"><strong>[% 'PLUGIN_SOLOIST_EXPIRED_LONG' | string %]</strong></p>
     [% END %]
+    [% IF soloistBuild %]
+    <p style="opacity:.85">[% 'PLUGIN_SOLOIST_BUILD' | string %]: [% soloistBuild | html %]</p>
+    [% END %]
+    [% IF updateMessage %]
+    <p style="opacity:.85">[% 'PLUGIN_SOLOIST_UPDATE' | string %]: [% updateMessage | html %][% IF updateChecked %] &middot; [% 'PLUGIN_SOLOIST_UPDATE_CHECKED' | string %] [% updateChecked | html %][% END %]</p>
+    [% END %]
     [% IF delayText %]
     <p style="opacity:.85">[% 'PLUGIN_SOLOIST_DELAY_LABEL' | string %]: [% delayText | html %]</p>
     [% END %]
@@ -44,6 +50,7 @@
       <button class="submit" type="submit" name="soloistAction" value="start">[% 'PLUGIN_SOLOIST_START' | string %]</button>
       <button class="submit" type="submit" name="soloistAction" value="stop">[% 'PLUGIN_SOLOIST_STOP' | string %]</button>
       <button class="submit" type="submit" name="soloistAction" value="restart">[% 'PLUGIN_SOLOIST_RESTART' | string %]</button>
+      <button class="submit" type="submit" name="soloistAction" value="checkUpdate">[% 'PLUGIN_SOLOIST_CHECK_UPDATE' | string %]</button>
     </p>
     <h3>[% 'PLUGIN_SOLOIST_CONTROLS' | string %]</h3>
     <p>
@@ -68,6 +75,10 @@
 
   [% WRAPPER setting title="PLUGIN_SOLOIST_AUTOSTART" desc="" %]
     <input type="checkbox" class="stdedit" name="pref_autoStart" id="pref_autoStart" value="1" [% IF prefs.pref_autoStart %]checked="checked"[% END %]/>
+  [% END %]
+
+  [% WRAPPER setting title="PLUGIN_SOLOIST_AUTO_UPDATE" desc="PLUGIN_SOLOIST_AUTO_UPDATE_DESC" %]
+    <input type="checkbox" class="stdedit" name="pref_autoUpdate" id="pref_autoUpdate" value="1" [% IF prefs.pref_autoUpdate %]checked="checked"[% END %]/>
   [% END %]
 
   [% WRAPPER setting title="PLUGIN_SOLOIST_DEVICE_NAME" desc="" %]
