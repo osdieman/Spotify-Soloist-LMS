@@ -130,9 +130,10 @@ sub handler {
     $paramRef->{serviceExpired}  = $state->{expired};
     require Plugins::Soloist::Plugin;
     for my $client (Slim::Player::Client::clients()) {
-        my $delay = Plugins::Soloist::Plugin->delaySeconds($client);
-        next unless defined $delay;
-        $paramRef->{delayText} = sprintf('%.1f s (%s)', $delay, $client->name);
+        my $d = Plugins::Soloist::Plugin->delayDetails($client) or next;
+        $paramRef->{delayText} = sprintf('%.1f s (%s)', $d->{delay}, $client->name)
+            . (defined $d->{buffers} ? sprintf(' · in player buffers %.1f s', $d->{buffers}) : '')
+            . (defined $d->{elapsed} ? sprintf(' · by elapsed time %.1f s', $d->{elapsed}) : '');
         last;
     }
     $paramRef->{keyStatus}       = Plugins::Soloist::Manager->keyStatus();

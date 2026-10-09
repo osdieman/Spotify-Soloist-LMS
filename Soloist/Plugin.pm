@@ -692,21 +692,64 @@ sub captureStarted {
 
 sub delaySeconds {
     my ($class, $client) = @_;
+    my $d = $class->delayDetails($client) or return;
+    return $d->{delay};
+}
+
+# The delay two ways, and the larger one counts:
+#   elapsed  time since the capture started minus what the player has played
+#   buffers  what squeezelite reports is waiting in its stream buffer (FLAC)
+#            and output buffer (decoded audio); this sees a backlog even when
+#            the elapsed time can't (e.g. the player clock drifting against
+#            the Loopback until its buffers are full, ~18 s)
+sub delayDetails {
+    my ($class, $client) = @_;
     $client = _masterClient($client) or return;
     return unless _isSoloistSource($client) && eval { $client->isPlaying() };
     my $start = $captureStartedAt{$client->id} or return;
+    my $now = Time::HiRes::time();
+    my %d;
+
     my $played = eval { $client->songElapsedSeconds() };
-    return unless defined $played && $played > 0;
-    my $delay = Time::HiRes::time() - $start - $played;
-    return $delay < 0 ? 0 : $delay;
+    if (defined $played && $played > 0) {
+        my $delay = $now - $start - $played;
+        $d{elapsed} = $delay < 0 ? 0 : $delay;
+    }
+
+    # squeezelite: output buffer in 8-byte frames (32-bit stereo) at the
+    # stream rate; stream buffer in FLAC bytes, which arrive in real time.
+    my $out = eval { $client->outputBufferFullness() };
+    my $in  = eval { $client->bufferFullness() };
+    my $received = eval { $client->bytesReceived() } || 0;
+    my $since = $now - $start;
+    if (defined $out && defined $in && $since > 5 && $received > 0) {
+        my $inRate = $received / $since;
+        $d{buffers}  = $out / (44100 * 8) + ($inRate > 0 ? $in / $inRate : 0);
+        $d{streamKB} = int($in / 1024);
+        $d{outputKB} = int($out / 1024);
+    }
+
+    my @known = grep { defined } @d{qw(elapsed buffers)};
+    return unless @known;
+    ($d{delay}) = sort { $b <=> $a } @known;
+    return \%d;
 }
 
 sub _flushIfDelayed {
     my ($client, $reason, $threshold) = @_;
     return unless $prefs->get('keepDelayLow');
-    my $delay = __PACKAGE__->delaySeconds($client);
-    return unless defined $delay && $delay > $threshold;
-    _flushStream($client, sprintf('%s, delay %.1f s', $reason, $delay));
+    my $d = __PACKAGE__->delayDetails($client);
+    $log->info(sprintf('Delay check (%s): %s', $reason, _delayText($d)));
+    return unless $d && $d->{delay} > $threshold;
+    _flushStream($client, sprintf('%s, delay %.1f s', $reason, $d->{delay}));
+}
+
+sub _delayText {
+    my ($d) = @_;
+    return 'unknown' unless $d;
+    return join(', ', (defined $d->{elapsed} ? sprintf('by elapsed time %.1f s', $d->{elapsed}) : 'elapsed time n/a'),
+        (defined $d->{buffers} ? sprintf('in player buffers %.1f s (stream %d KB, output %d KB)',
+            $d->{buffers}, $d->{streamKB}, $d->{outputKB}) : 'player buffers n/a'));
 }
 
 sub _flushStream {
@@ -717,6 +760,8 @@ sub _flushStream {
     $lastFlushAt{$client->id} = $now;
     $log->info("Restarting the Soloist stream on " . $client->name . " to drop the backlog ($reason)");
     Plugins::Soloist::Watchdog->mark("stream restart ($reason)");
+    require Plugins::Soloist::LogWriter;
+    Plugins::Soloist::LogWriter->write('--- stream restart ' . localtime() . " on " . $client->name . ": $reason\n");
     $suppressTransportUntil{$client->id} = $now + 4;
     $sourceStartedAt{$client->id} = $now;
     delete $captureStartedAt{$client->id};
