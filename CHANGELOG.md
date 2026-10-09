@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.35
+
+### Fixed
+- **Next took ~18 s to be heard after playing for a while.** The backlog builds
+  up in squeezelite's own buffers (clock drift between the Loopback and the
+  DAC, plus every LMS stall) until they are full, ~18 s with FLAC 24-bit. The
+  delay was only measured from the elapsed time, which didn't show it, so
+  "Keep the delay low" never restarted the stream. The plugin now also reads
+  how full squeezelite reports its stream and output buffers are, and uses the
+  larger of the two measurements.
+
+### New
+- The settings page shows both measurements ("in player buffers", "by elapsed
+  time"). Every delay check is logged at Info level, and every stream restart
+  gets a `--- stream restart` line in `soloist.log`.
+
 ## 0.1.34
 
 ### Fixed
