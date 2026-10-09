@@ -217,10 +217,24 @@ use a new key.
 
 ## Renewal
 
-Soloist builds expire 90 days after their build date.
+Soloist builds expire 90 days after their build date. The settings page shows
+the installed build, its build date and its expiry ("Soloist build: …").
 
-- Soloist builds expire 90 days after their build date. An expired build
-  exits with code 10; the settings page and the app then say so in red.
+- **Automatic updates** ("Update Soloist automatically", on by default): once a
+  day the plugin asks Spotify's official download address
+  (`soloist-builds.spotifycdn.com`) whether the archive changed. Only then it
+  downloads it in the background, unpacks it, runs `soloist --version` to make
+  sure it works here, is the same architecture and is newer, and puts it in
+  place. The previous binary stays as `soloist.prev`. Soloist switches over
+  when nothing has played through it for 10 minutes, or right away if the old
+  build has expired. If the new build does not start within 90 s, the previous
+  one is restored (the failed one is kept as `soloist.failed`) and that build
+  is not tried again. Every update gets a `--- soloist update` line in
+  `soloist.log`; "Check for update" on the settings page checks immediately.
+  The download goes from Spotify straight to this machine; the plugin never
+  ships the Soloist binary itself.
+- An expired build exits with code 10; the settings page and the app then say
+  so in red, and the plugin looks for a newer build at once.
 - If Soloist stops and its log mentions an invalid or revoked key, the
   settings page says so in red.
 - If the key carries a readable expiry date (a JWT with an `exp` claim), the

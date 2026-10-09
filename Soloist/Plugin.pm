@@ -73,6 +73,9 @@ sub initPlugin {
         appStartsPlayback => 1,
         keepDelayLow    => 1,
         measureSource   => 1,
+        autoUpdate      => 1,      # download new Soloist builds from Spotify
+        updateEtag      => '',     # archive version already installed/checked
+        updateBadEtag   => '',     # archive version that failed here
     });
 
     require Plugins::Soloist::Watchdog;
@@ -114,6 +117,8 @@ sub initPlugin {
     # Let LMS finish its startup before attempting the standalone daemon.
     $autoStartAttempts = 0;
     Slim::Utils::Timers::setTimer($class, Time::HiRes::time() + 8, \&_autoStart);
+    require Plugins::Soloist::Updater;
+    Plugins::Soloist::Updater->init();
     return 1;
 }
 
@@ -427,6 +432,16 @@ sub _masterClient {
     return unless $client;
     return $client->master if $client->can('master') && $client->master;
     return $client;
+}
+
+# True while any player (or group) is playing the Soloist source, so the
+# updater never restarts Soloist under someone's music.
+sub sourcePlaying {
+    for my $client (Slim::Player::Client::clients()) {
+        my $master = _masterClient($client) or next;
+        return 1 if eval { $master->isPlaying() } && _isSoloistSource($master);
+    }
+    return 0;
 }
 
 sub _isSoloistSource {

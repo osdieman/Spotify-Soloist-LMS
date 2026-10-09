@@ -1,6 +1,7 @@
 package Plugins::Soloist::Settings;
 
 use strict;
+use POSIX ();
 use warnings;
 use utf8;    # literal non-ASCII text in this file is characters, not bytes
 use base qw(Slim::Web::Settings);
@@ -20,7 +21,7 @@ sub name { Slim::Web::HTTP::CSRF->protectName('PLUGIN_SOLOIST_NAME'); }
 sub needsClient { 0; }
 sub page { Slim::Web::HTTP::CSRF->protectURI($page); }
 sub prefs {
-    return ($prefs, qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow measureSource stallWatchdog
+    return ($prefs, qw(autoStart autoUpdate shimDiagnostics appStartsPlayback keepDelayLow measureSource stallWatchdog
         maxTlengthMs initialVolume cacheSize captureBufferMs), @TEXT_PREFS);
 }
 
@@ -33,7 +34,7 @@ sub handler {
 
     if ($paramRef->{saveSettings}) {
         # HTML checkboxes are omitted when unchecked; normalize explicitly.
-        for my $name (qw(autoStart shimDiagnostics appStartsPlayback keepDelayLow measureSource)) {
+        for my $name (qw(autoStart autoUpdate shimDiagnostics appStartsPlayback keepDelayLow measureSource)) {
             $paramRef->{"pref_$name"} = $paramRef->{"pref_$name"} ? 1 : 0;
         }
         for my $name (@TEXT_PREFS) {
@@ -104,13 +105,15 @@ sub handler {
             pause   => [sub { Plugins::Soloist::Control->send('pause') },     'Pause sent.',    'control'],
             next    => [sub { Plugins::Soloist::Control->send('skip_next') }, 'Next sent.',     'control'],
             prev    => [sub { Plugins::Soloist::Control->send('skip_prev') }, 'Previous sent.', 'control'],
+            checkUpdate => [sub { require Plugins::Soloist::Updater; Plugins::Soloist::Updater->check(1) },
+                'Checking for a new Soloist build…', 'updater'],
         );
         if (my $entry = $actions{$action}) {
             my ($run, $okMessage, $kind) = @{$entry};
             my $ok = eval { $run->() };
             my $exception = $@;
-            my $reason = $kind eq 'manager'
-                ? Plugins::Soloist::Manager->lastError()
+            my $reason = $kind eq 'manager' ? Plugins::Soloist::Manager->lastError()
+                : $kind eq 'updater' ? (Plugins::Soloist::Updater->status()->{message} || 'An update is already in progress.')
                 : Plugins::Soloist::Control->lastError();
             $reason ||= $exception unless $ok;
             $paramRef->{actionMessage} = $ok ? $okMessage : ($reason || "Action '$action' failed.");
@@ -121,6 +124,11 @@ sub handler {
     require Plugins::Soloist::Manager;
     my $state = Plugins::Soloist::Manager->status();
     $paramRef->{serviceRunning}  = $state->{running} ? 1 : 0;
+    require Plugins::Soloist::Updater;
+    $paramRef->{soloistBuild}    = Plugins::Soloist::Updater->buildText();
+    my $upd = Plugins::Soloist::Updater->status();
+    $paramRef->{updateMessage}   = $upd->{message};
+    $paramRef->{updateChecked}   = $upd->{lastCheck} ? POSIX::strftime('%Y-%m-%d %H:%M', localtime($upd->{lastCheck})) : '';
     $paramRef->{serviceStarting} = $state->{starting} ? 1 : 0;
     $paramRef->{serviceStopping} = $state->{stopping} ? 1 : 0;
     $paramRef->{servicePid}      = $state->{pid} || '';

@@ -279,3 +279,21 @@ PLUGIN_SOLOIST_MEASURE
 
 PLUGIN_SOLOIST_MEASURE_DESC
 	EN	Checks the captured audio and shows what Spotify delivers: "Spotify LOSSLESS 16-bit" or "LOSSLESS 24-bit" (original values), "Spotify 16-bit (gain -3.9 dB)" or "24-bit (gain …)" (lossless source, but its level was changed, e.g. by Soloist's loudness normalisation), or "Spotify NOT BIT-PERFECT" (no integer grid: lossy or dithered). Shows plain "Spotify" until it is sure. Takes a few seconds per track; one line per track goes to soloist.log ("--- measure"). Applies from the next time the source starts.
+
+PLUGIN_SOLOIST_BUILD
+	EN	Soloist build
+
+PLUGIN_SOLOIST_UPDATE
+	EN	Updates
+
+PLUGIN_SOLOIST_UPDATE_CHECKED
+	EN	last checked
+
+PLUGIN_SOLOIST_CHECK_UPDATE
+	EN	Check for update
+
+PLUGIN_SOLOIST_AUTO_UPDATE
+	EN	Update Soloist automatically
+
+PLUGIN_SOLOIST_AUTO_UPDATE_DESC
+	EN	Soloist builds stop working 90 days after their build date. When this is on, the plugin checks Spotify's download address once a day, downloads a newer build in the background, tests it, and switches to it when nothing has played through Soloist for 10 minutes (right away if the old build has expired). The previous build is kept as "soloist.prev" and restored automatically if the new one doesn't start. The download comes straight from Spotify to this machine.

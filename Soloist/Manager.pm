@@ -509,8 +509,10 @@ sub _reap {
     if ($r == $childPid) {
         $lastExitCode = $? >> 8;
         $log->info("Soloist pid=$childPid exited with status $lastExitCode");
-        $log->error('Soloist reports that this build has expired (exit code 10); install a newer Soloist build')
-            if $lastExitCode == EXIT_EXPIRED;
+        if ($lastExitCode == EXIT_EXPIRED) {
+            $log->error('Soloist reports that this build has expired (exit code 10); looking for a newer build');
+            eval { require Plugins::Soloist::Updater; Plugins::Soloist::Updater->expired() };
+        }
         $childPid = 0;
     }
     elsif ($r == -1) {
