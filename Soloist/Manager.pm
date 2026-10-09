@@ -87,6 +87,7 @@ sub start {
     return _fail('Soloist executable path must be absolute') unless $bin =~ m{\A/};
     return _fail("Soloist executable is missing or not executable: $bin") unless -f $bin && -x _;
     return _fail('API key file is missing or unreadable') unless -f $keyPath && -r _;
+    _tightenKeyFile($keyPath);
     my @keyStat = stat $keyPath;
     return _fail('API key file must have private permissions (chmod 600)') if @keyStat && ($keyStat[2] & 0077);
     my $key = _readFile($keyPath);
@@ -425,6 +426,22 @@ sub saveKey {
 }
 
 # What the settings page shows about the key: never the key itself.
+# Some systems loosen permissions under their own folders at boot (piCorePlayer
+# adds group-write to everything under tce, turning 0600 into 0620). The key
+# must stay private, so put it back to 0600 whenever it is checked or used.
+# Returns true if it changed the mode.
+my %tightenedKey;
+sub _tightenKeyFile {
+    my ($path) = @_;
+    my @st = stat $path or return;
+    my $mode = $st[2] & 07777;
+    return unless $mode & 0077;
+    return unless chmod 0600, $path;
+    $log->warn(sprintf('API key file %s was %04o; set it back to 0600', $path, $mode))
+        unless $tightenedKey{$path}++;
+    return 1;
+}
+
 sub keyStatus {
     my $path = keyPath();
     my %s = (path => $path);
@@ -432,6 +449,7 @@ sub keyStatus {
     my @st = stat $path;
     $s{changed} = @st ? POSIX::strftime('%Y-%m-%d %H:%M', localtime($st[9])) : '';
     unless (-r _) { $s{state} = 'unreadable'; return \%s; }
+    @st = stat $path if _tightenKeyFile($path);
     if (@st && ($st[2] & 0077)) {
         $s{state} = 'permissions';
         $s{mode} = sprintf('%04o', $st[2] & 07777);
