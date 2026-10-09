@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.34
+
+### Fixed
+- **Metadata stopped updating (since 0.1.32).** The per-track measurement line
+  includes the title; a title with a non-ASCII character ("é", "–") made the
+  log write die ("Wide character in syswrite") inside the metadata handler,
+  before the new track was stored, so the title, cover and time stayed on the
+  old track. The log writer now writes UTF-8, and the measurement line is
+  written after the metadata is applied and can no longer break it.
+- **Measurement history no longer resets on a stream restart** (skip, resume,
+  "keep the delay low"): the filter carries on with the previous blocks, so a
+  track's measurement line covers the whole track.
+
 ## 0.1.33
 
 ### Fixed
