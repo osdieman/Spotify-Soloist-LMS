@@ -7,20 +7,22 @@
 # Output: raw S24_3LE (the low byte of every sample dropped), passed on at once.
 #
 # Every 0.5 s of audio it writes one line to STATEFILE (in /tmp, RAM):
-#   <epoch> <class> <gain> <fit> <levels>
+#   <epoch> <class> <gain> <fit> <levels> <grid>
 # class, from which bits are in use:
 #   16  only the top 16 bits used            -> lossless 16-bit on the standard grid
 #   24  bits below 16 used, not the low byte -> lossless 24-bit
 #   X   the low byte is used too             -> not on the standard grid
 #   Z   digital silence
-# gain/fit/levels, from the quiet samples (16-bit level < 256), where a
-# 16-bit source shows clear steps even when something scaled it:
-#   gain    step between neighbouring levels / one 16-bit step
-#           (1.00000 standard, 1.00003 = scaled by 32767, 0.794 = -2 dB,
-#           ~0 = no steps: lossy or dithered)
-#   fit     share of the quiet samples that lie on that step grid
+# gain/fit/levels/grid, from the quiet samples (16-bit level < 256), where
+# a source shows its integer steps even when something scaled it:
+#   grid    16  the samples sit on a (scaled) 16-bit grid
+#           24  they sit on a (scaled) 24-bit grid
+#           -   no grid found (lossy, dithered), or too few quiet samples
+#   gain    step between neighbouring levels / one step of that grid
+#           (1.00000 standard, 1.00003 = scaled by 32767 / 8388607,
+#           0.794 = -2 dB, e.g. Spotify's loudness normalisation)
+#   fit     share of the quiet samples on that grid
 #   levels  distinct quiet values seen (capped at LEVEL_CAP)
-#   "-" when the block had too few quiet samples to tell.
 # Keeps the last KEEP lines; Plugins::Soloist::Measure reads them.
 
 use strict;
@@ -35,7 +37,8 @@ $| = 1;
 use constant BLOCK_BYTES => 44100 * 2 * 4 / 2;   # 0.5 s of stereo S32
 use constant KEEP        => 480;                   # 4 minutes of blocks
 use constant QUIET       => 256 * 65536;           # 16-bit level 256 in S32
-use constant LEVEL_CAP   => 3000;                  # more distinct values = no grid
+use constant LEVEL_CAP   => 6000;                  # more distinct values = no grid
+use constant TOL         => 4;                     # S32 units of float/rounding slack
 use constant MIN_LEVELS  => 24;
 
 my ($nonzero, $low, $mid, $seen) = (0, 0, 0, 0);
@@ -52,27 +55,74 @@ sub masks {
     return @{ $mask{$len} };
 }
 
-# Step between neighbouring quiet levels (median of the gaps), relative to
-# one 16-bit step, and how many quiet values lie on that grid.
+# Grid tests work on the gaps between neighbouring quiet values: on a grid,
+# every gap is a whole number of steps. Gaps span only a few steps, so a
+# tiny error in the step can't add up the way it would over absolute values.
+use constant MAX_K => 50;    # ignore gaps longer than this many steps
+
+# Sharpen a rough step: average the gaps that are close to whole multiples.
+sub refine {
+    my ($step, $gaps) = @_;
+    for (1 .. 3) {
+        my ($sum, $ks) = (0, 0);
+        for my $g (@$gaps) {
+            my $k = int($g / $step + 0.5);
+            next if $k < 1 || $k > MAX_K || abs($g - $k * $step) > 0.25 * $step;
+            $sum += $g;
+            $ks  += $k;
+        }
+        $step = $sum / $ks if $ks;
+    }
+    return $step;
+}
+
+# Share of the (short) gaps that are whole multiples of $step within TOL.
+sub fit {
+    my ($step, $gaps) = @_;
+    my ($n, $on) = (0, 0);
+    for my $g (@$gaps) {
+        my $k = int($g / $step + 0.5);
+        next if $k > MAX_K;
+        $n++;
+        $on++ if $k >= 1 && abs($g - $k * $step) <= TOL;
+    }
+    return $n >= MIN_LEVELS ? $on / $n : 0;
+}
+
+# Which grid the quiet samples sit on, and at what gain.
+# 16-bit: neighbouring levels are dense, so the median gap is one step.
+# 24-bit: levels are sparse, so the smallest gap is one or a few steps;
+#         try it divided by 1..4 and take the coarsest step that fits.
 sub grid {
     my @v = sort { $a <=> $b } keys %quiet;
-    return ('-', '-', scalar @v) if @v < MIN_LEVELS && !$quietFull;
-    return ('0.00000', '0.00', LEVEL_CAP) if $quietFull;
-    my @gap = sort { $a <=> $b } map { $v[$_] - $v[$_ - 1] } 1 .. $#v;
+    return ('0.00000', '0.00', LEVEL_CAP, '-') if $quietFull;
+    return ('-', '-', scalar @v, '-') if @v < MIN_LEVELS;
+    my @gap = sort { $a <=> $b } grep { $_ > 0 } map { $v[$_] - $v[$_ - 1] } 1 .. $#v;
+    return ('0.00000', '0.00', scalar @v, '-') unless @gap >= MIN_LEVELS;
     my $step = $gap[int(@gap / 2)];
-    return ('0.00000', '0.00', scalar @v) if $step < 16;    # no usable steps
-    my $on = 0;
-    for my $x (@v) {
-        my $q = $x / $step;
-        $on++ if abs($q - int($q + 0.5)) < 0.02;
+    my $fit16 = 0;
+    if ($step >= 16) {
+        $step = refine($step, \@gap);
+        $fit16 = fit($step, \@gap);
+        return (sprintf('%.5f', $step / 65536), sprintf('%.2f', $fit16), scalar @v, '16')
+            if $fit16 >= 0.9;
     }
-    return (sprintf('%.5f', $step / 65536), sprintf('%.2f', $on / @v), scalar @v);
+    if (@v >= 50) {
+        for my $m (1 .. 4) {
+            my $s = $gap[0] / $m;
+            last if $s < 32;    # finer steps than this fit anything within TOL
+            $s = refine($s, \@gap);
+            my $f = fit($s, \@gap);
+            return (sprintf('%.5f', $s / 256), sprintf('%.2f', $f), scalar @v, '24') if $f >= 0.9;
+        }
+    }
+    return (sprintf('%.5f', $step / 65536), sprintf('%.2f', $fit16), scalar @v, '-');
 }
 
 sub flush_block {
     my $class = !$nonzero ? 'Z' : $low ? 'X' : $mid ? '24' : '16';
-    my ($gain, $fit, $levels) = $class eq 'Z' ? ('-', '-', 0) : grid();
-    push @blocks, sprintf('%.3f %s %s %s %d', Time::HiRes::time(), $class, $gain, $fit, $levels);
+    my ($gain, $fit, $levels, $grid) = $class eq 'Z' ? ('-', '-', 0, '-') : grid();
+    push @blocks, sprintf('%.3f %s %s %s %d %s', Time::HiRes::time(), $class, $gain, $fit, $levels, $grid);
     shift @blocks while @blocks > KEEP;
     ($nonzero, $low, $mid, $seen) = (0, 0, 0, 0);
     %quiet = ();
