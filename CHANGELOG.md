@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.36
+
+### Fixed
+- **Soloist didn't start after a reboot on piCorePlayer** because the API key
+  file was no longer private: pCP adds group-write under `tce` at boot, which
+  turns 0600 into 0620, and the plugin refuses a key file others can access.
+  The plugin now sets the key file back to 0600 itself whenever it checks or
+  uses it, and logs once when it had to.
+
 ## 0.1.35
 
 ### Fixed
