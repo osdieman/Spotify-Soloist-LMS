@@ -43,8 +43,11 @@ sub write {
     if ($dropped) {
         $text = "--- ($dropped log line(s) dropped: log writer was busy)\n" . $text;
     }
+    # Track titles from Spotify are character strings ("é", "–"); syswrite
+    # dies on anything above 0xFF, so write them as UTF-8 bytes.
+    utf8::encode($text) if utf8::is_utf8($text);
     local $SIG{PIPE} = 'IGNORE';
-    my $n = syswrite($pipe, $text);
+    my $n = eval { syswrite($pipe, $text) };
     if (!defined $n) {
         if ($! == EAGAIN || $! == EWOULDBLOCK || $! == EINTR) {
             $dropped++;

@@ -607,12 +607,18 @@ sub handleSoloistEvent {
     return unless length($meta->{title}) || length($meta->{artist});
     my $previous = $lastSoloistMetadata;
     my $previousAt = $lastTrackPositionAt;
+    my $finished;    # [metadata, start, end] of the track that just ended
     if (!ref($previous) || ($meta->{uri} || '') ne ($previous->{uri} || '')) {
         my $now = Time::HiRes::time();
-        _logMeasurement($previous, $trackStartedAt, $now) if ref($previous);
+        $finished = [$previous, $trackStartedAt, $now] if ref($previous);
         $trackStartedAt = $now;
     }
     $lastSoloistMetadata = $meta;
+    # Diagnostics only: never let the measurement line stop the metadata.
+    if ($finished) {
+        eval { _logMeasurement(@$finished); 1 }
+            or $log->warn("Could not log the measurement: $@");
+    }
     $lastTrackPositionAt = Time::HiRes::time() if defined $meta->{position};
 
     if (main::DEBUGLOG && $log->is_debug) {
