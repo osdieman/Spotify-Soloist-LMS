@@ -278,4 +278,4 @@ PLUGIN_SOLOIST_MEASURE
 	EN	Measure the Spotify stream
 
 PLUGIN_SOLOIST_MEASURE_DESC
-	EN	Checks which bits the captured audio actually uses and shows it in LMS: "Spotify LOSSLESS 16-bit", "Spotify LOSSLESS 24-bit", or "Spotify NOT BIT-PERFECT" (a lossy stream, or Spotify volume below 100% / normalisation). Takes a few seconds per track. Applies from the next time the source starts.
+	EN	Checks the captured audio and shows what Spotify delivers: "Spotify LOSSLESS 16-bit" or "LOSSLESS 24-bit" (original values), "Spotify 16-bit (gain -2.0 dB)" (lossless source, but its level was changed), or "Spotify NOT BIT-PERFECT" (no integer grid: lossy or dithered). Shows plain "Spotify" until it is sure. Takes a few seconds per track; one line per track goes to soloist.log ("--- measure"). Applies from the next time the source starts.

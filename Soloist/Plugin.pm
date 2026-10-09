@@ -607,8 +607,11 @@ sub handleSoloistEvent {
     return unless length($meta->{title}) || length($meta->{artist});
     my $previous = $lastSoloistMetadata;
     my $previousAt = $lastTrackPositionAt;
-    $trackStartedAt = Time::HiRes::time()
-        if !ref($previous) || ($meta->{uri} || '') ne ($previous->{uri} || '');
+    if (!ref($previous) || ($meta->{uri} || '') ne ($previous->{uri} || '')) {
+        my $now = Time::HiRes::time();
+        _logMeasurement($previous, $trackStartedAt, $now) if ref($previous);
+        $trackStartedAt = $now;
+    }
     $lastSoloistMetadata = $meta;
     $lastTrackPositionAt = Time::HiRes::time() if defined $meta->{position};
 
@@ -648,17 +651,31 @@ sub handleSoloistEvent {
 # measured as time since the capture started minus what the player has
 # played of this stream. Restarting the stream drops the backlog.
 
-# "Spotify LOSSLESS 16-bit", "Spotify LOSSLESS 24-bit", "Spotify NOT
-# BIT-PERFECT" or plain "Spotify" while measuring, from the bits actually
-# used in the captured audio of the current track.
+# "Spotify LOSSLESS 16-bit", "Spotify LOSSLESS 24-bit", "Spotify 16-bit
+# (gain -2.0 dB)", "Spotify NOT BIT-PERFECT", or plain "Spotify" while the
+# measurement isn't sure yet. See Plugins::Soloist::Measure.
 sub sourceLabel {
     return 'Spotify' unless $prefs->get('measureSource');
     require Plugins::Soloist::Measure;
-    my $verdict = Plugins::Soloist::Measure->verdict($trackStartedAt);
-    return 'Spotify' unless $verdict;
-    return "Spotify LOSSLESS $verdict-bit" if $verdict eq '16' || $verdict eq '24';
-    return 'Spotify NOT BIT-PERFECT'
-        . (defined $spotifyVolume && $spotifyVolume < 100 ? sprintf(' (volume %d%%)', $spotifyVolume) : '');
+    my $part = Plugins::Soloist::Measure::labelPart(
+        Plugins::Soloist::Measure->verdict($trackStartedAt)) or return 'Spotify';
+    $part .= sprintf(' (volume %d%%)', $spotifyVolume)
+        if $part !~ /LOSSLESS/ && defined $spotifyVolume && $spotifyVolume < 100;
+    return "Spotify $part";
+}
+
+# One line per track in soloist.log with what the measurement saw, so a
+# verdict can be checked afterwards.
+sub _logMeasurement {
+    my ($meta, $since, $until) = @_;
+    return unless $prefs->get('measureSource') && $since && $until - $since > 5;
+    require Plugins::Soloist::Measure;
+    my $summary = Plugins::Soloist::Measure->summary($since, $until) or return;
+    my $title = join(' - ', grep { defined($_) && length($_) } $meta->{artist}, $meta->{title});
+    $title =~ s/[\x00-\x1f]+/ /g;
+    require Plugins::Soloist::LogWriter;
+    Plugins::Soloist::LogWriter->write(sprintf("--- measure %s: \"%s\" (%.0f s): %s\n",
+        scalar localtime($until), $title, $until - $since, $summary));
 }
 
 sub captureStarted {
