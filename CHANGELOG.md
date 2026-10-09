@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.38
+
+### Fixed
+- Update messages showed `â€¦` instead of `…` on the settings page.
+- After a plugin update, LMS could keep showing the old settings page and
+  texts: the release zips since 0.1.35 gave every file the same fixed date, so
+  LMS's page and string caches didn't notice the files had changed. Release
+  zips now carry the release time. (If you are on 0.1.36/0.1.37 and the page
+  looks unchanged after updating, `touch` the plugin's `basic.html` and
+  `strings.txt` once and restart LMS.)
+
 ## 0.1.37
 
 ### New
