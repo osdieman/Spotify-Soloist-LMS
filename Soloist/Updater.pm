@@ -18,6 +18,7 @@ package Plugins::Soloist::Updater;
 
 use strict;
 use warnings;
+use utf8;    # the messages contain "…"; without this they reach the page as bytes ("â€¦")
 use File::Basename qw(dirname);
 use File::Path qw(make_path remove_tree);
 use POSIX ();
