@@ -35,45 +35,130 @@ Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► soloist
 
 ## Requirements
 
-- Lyrion Music Server 8.0 or later on **piCorePlayer** (tested on a
-  Raspberry Pi 4, 64-bit). Other systems are not supported for now.
-- The ALSA Loopback driver `snd-aloop`, loaded at boot (see Setup)
-- **Spotify Soloist** and a Soloist API key from Spotify. Soloist is
-  proprietary and is *not* included here; see Spotify's Soloist documentation.
-  It needs glibc 2.38 or newer.
-- The Pulse-to-ALSA shim (`libpulse.so.0`) from
+- **piCorePlayer 64-bit on a Raspberry Pi** (tested on a Pi 4) running Lyrion
+  Music Server 8.0 or later. Other systems are not supported for now.
+- A **Spotify Premium** account and a free **Spotify for Developers** account
+  (for the Soloist API key)
+- **Spotify Soloist**, downloaded from Spotify (step 3 below). It is
+  proprietary and not included here; it needs glibc 2.38 or newer, which
+  current piCorePlayer has.
+- The **Pulse shim** `libpulse.so.0` from
   [foonerd/alsa_soloist_connect](https://github.com/foonerd/alsa_soloist_connect)
-- A Spotify Premium account
+  (MIT), downloaded in step 4. Soloist only speaks PulseAudio; the shim passes
+  its audio straight to ALSA. **Without it Soloist starts but plays nothing.**
+- The ALSA Loopback driver `snd-aloop`, loaded at boot (step 1)
 
-## Installation
+## Installation on piCorePlayer
 
-### From inside LMS (recommended)
+The commands below run in an SSH session on the Pi as the normal `tc` user
+(LMS runs as `tc` too, so the files then have the right owner). They use the
+plugin's default folder `/mnt/mmcblk0p2/tce/soloist-prototype`, so no paths
+need changing on the settings page.
 
-1. LMS → Settings → Plugins → *Additional Repositories*, add:
+### 1. Load the Loopback driver at every boot
+
+pCP web interface → **Tweaks** → **User Commands**, enter
+`modprobe snd-aloop` in User command #1, **Save**, reboot. Check:
+
+```
+cat /proc/asound/cards
+```
+
+It should list a `Loopback` card. If your DAC's card number changes because
+of it, give the Loopback a fixed free number instead, e.g.
+`modprobe snd-aloop index=2`.
+
+### 2. Get your Soloist API key
+
+1. Log in at the [Spotify for Developers dashboard](https://developer.spotify.com/dashboard)
+   with your Premium account.
+2. Open [Spotify Soloist API Key](https://developer.spotify.com/dashboard/soloist),
+   accept the terms if asked, and **generate an API key**.
+3. Keep it private: it belongs to your account. You paste it on the plugin's
+   settings page in step 6; the plugin stores it only in a `chmod 600` file.
+
+### 3. Download Soloist
+
+Spotify publishes the current build at a fixed address
+([Downloads and updates](https://developer.spotify.com/documentation/soloist/reference/downloads-and-updates)):
+
+```
+mkdir -p /mnt/mmcblk0p2/tce/soloist-prototype/bin
+cd /tmp
+curl -fL -o soloist.tar.gz https://soloist-builds.spotifycdn.com/soloist_release_arm64.tar.gz
+tar -xzf soloist.tar.gz
+cp soloist /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist
+chmod 755 /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist
+rm soloist soloist.tar.gz
+/mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist --version
+```
+
+The last command should print something like
+`soloist 1.3.9.4 build … (linux/aarch64)`. You only do this once: from then on
+the plugin keeps Soloist up to date itself (see
+[Automatic Soloist updates](#automatic-soloist-updates)).
+
+### 4. Download the Pulse shim
+
+```
+mkdir -p /mnt/mmcblk0p2/tce/soloist-prototype/shim
+curl -fL -o /mnt/mmcblk0p2/tce/soloist-prototype/shim/libpulse.so.0 \
+  https://raw.githubusercontent.com/foonerd/alsa_soloist_connect/main/soloist_connect/alsa-lib/arm64/libpulse.so.0
+ls -l /mnt/mmcblk0p2/tce/soloist-prototype/shim/
+```
+
+`libpulse.so.0` should be listed with about 80 KB.
+
+### 5. Install the plugin
+
+1. LMS → Settings → **Plugins** → *Additional Repositories*, add
    `https://raw.githubusercontent.com/osdieman/Spotify-Soloist-LMS/main/repo.xml`
+   and save.
 2. Install **Soloist Connect** from the plugin list and restart LMS.
 
-### Manually
+(Manual install instead: copy the `Soloist` folder to
+`/mnt/mmcblk0p2/tce/slimserver/Cache/Plugins/` and restart LMS.)
 
-Copy the `Soloist` folder to your LMS plugin folder (on piCorePlayer:
-`/mnt/mmcblk0p2/tce/slimserver/Cache/Plugins/`) and restart LMS.
+### 6. Set it up
 
-## Setup
+On the **Soloist Connect** settings page (LMS → Settings → Plugins):
 
-1. Load the Loopback driver at every boot: pCP web interface → **Tweaks** →
-   **User Commands**, enter `modprobe snd-aloop`, Save, reboot. Check with
-   `cat /proc/asound/cards` (it should list `Loopback`).
-2. Put the Soloist binary in a folder such as
-   `/mnt/mmcblk0p2/tce/soloist/bin/`, and the shim in
-   `/mnt/mmcblk0p2/tce/soloist/shim/`.
-3. Open the Soloist Connect settings page, check the paths, paste your API key
-   into **API key**, Save, and press Start.
-4. Open *My Apps → Soloist Connect* on your player (or save the
-   "Spotify (Soloist Connect)" item as a favourite), select the device in the
-   Spotify app and press play.
+1. Check the paths (*Soloist executable*, *Pulse shim folder*); with the
+   commands above the defaults are right.
+2. Paste your API key into **API key**.
+3. Choose your Spotify Connect **device name**.
+4. Set **Start this player when Spotify plays** to your player, so LMS starts
+   it by itself when you press play in Spotify (also after a reboot).
+5. **Save**, then press **Start**. After a few seconds the page should show
+   **Running** and the *Soloist build* line with its expiry date.
 
-If you upgrade from a version that used WaveInput, the old `wavin:` favourite
-is no longer needed; use the app or the new favourite instead.
+### 7. Play
+
+In the Spotify app, open the device picker, choose your device name and
+press play. The player starts within a few seconds, with title, artist and
+cover in LMS. For lossless audio, set the device's quality to Lossless in the
+Spotify app and keep the Spotify volume at 100 % (control the volume in LMS or
+on your amplifier).
+
+### After a reboot
+
+Soloist starts by itself about 8 seconds after LMS (retrying for about 90 s
+if the Loopback isn't ready yet). If the Spotify app no longer shows your
+device as selected, choose it again and press play.
+
+### Automatic Soloist updates
+
+Soloist builds stop working 90 days after their build date. With **Update
+Soloist automatically** on (default), the plugin checks Spotify's download
+address once a day, installs a newer build in the background and switches to
+it when nothing has played for 10 minutes (at once if the old one expired).
+The previous build is kept as `soloist.prev` and restored if the new one
+doesn't start. **Check for update** on the settings page checks immediately.
+
+### Upgrading from a WaveInput version
+
+The old `wavin:` favourite is no longer needed; use *My Apps → Soloist
+Connect* or the new favourite instead.
 
 ## Bit-perfect playback
 
