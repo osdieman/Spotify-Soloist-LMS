@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.32
+
+### Fixed
+- **The measurement no longer says `NOT BIT-PERFECT` when it can't know.**
+  0.1.31 only checked whether the lowest bits were empty, so any tiny scaling
+  (a decoder dividing by 32767 instead of 32768) counted as "changed", even
+  though every sample was still the original value. The filter now also
+  looks at the quiet samples of each 0.5 s block, finds the step between
+  neighbouring levels and checks whether the audio sits on a 16-bit grid,
+  and at what gain:
+  - on the standard grid, or scaled by at most 0.01 % → `Spotify LOSSLESS 16-bit`
+  - on a clean grid with a real gain → `Spotify 16-bit (gain -2.0 dB)`
+  - no integer grid at all (lossy, dither) → `Spotify NOT BIT-PERFECT`
+  - not sure yet → plain `Spotify`; a verdict needs 2 s of agreeing audio
+
+### New
+- One `--- measure` line per track in `soloist.log` with the block counts,
+  the measured gain and the verdict, so every label can be checked.
+
 ## 0.1.31
 
 ### New
