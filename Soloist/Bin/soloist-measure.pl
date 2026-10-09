@@ -46,6 +46,15 @@ my %quiet;
 my $quietFull = 0;
 my @blocks;
 my $rest = '';
+
+# A stream restart (skip, resume, "keep the delay low") starts a new filter.
+# Carry on with the blocks of the previous one, so the current track's
+# measurement isn't cut short.
+if ($state && open my $fh, '<', $state) {
+    @blocks = grep { /\A[\d.]+ / } map { chomp; $_ } <$fh>;
+    close $fh;
+    shift @blocks while @blocks > KEEP;
+}
 my %mask;
 
 sub masks {
