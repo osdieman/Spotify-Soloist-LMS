@@ -160,19 +160,22 @@ bits are in use, then passes the audio on as 24-bit to FLAC.
 - Values on a 16-bit grid that is scaled by at most 0.01 % (a decoder that
   divides by 32767 instead of 32768) → also `Spotify LOSSLESS 16-bit`: every
   sample is still the original value, one to one
-- Values on a clean 16-bit grid with a real gain → `Spotify 16-bit (gain -2.0 dB)`:
-  the source was lossless, but something changed its level (Spotify volume,
-  normalisation)
+- Values on a clean 16-bit or 24-bit grid with a real gain →
+  `Spotify 16-bit (gain -3.9 dB)` / `Spotify 24-bit (gain -5.2 dB)`: the source
+  was lossless, but its level was changed. With Soloist this is its built-in
+  loudness normalisation (a different gain per track); a Spotify volume below
+  100 % would do the same
 - No integer grid at all → `Spotify NOT BIT-PERFECT`: a lossy stream, dither,
   or crossfade
 - Not sure yet (start of a track, quiet passages) → plain `Spotify`
 
-The grid and gain come from the quiet samples of each 0.5 s block, where a
-16-bit source shows clear steps even after scaling. Every track also gets one
+The grid and gain come from the quiet samples of each 0.5 s block: on a grid,
+every gap between neighbouring values is a whole number of steps, even after
+scaling. 16-bit and 24-bit grids are both recognised. Every track also gets one
 line in `soloist.log`, for example:
 
 ```
---- measure Fri Oct  9 21:14:03 2026: "Artist - Title" (212 s): blocks 16:0 24:0 X:418; X blocks on a grid 418, on no grid 0; grid gain 1.00003 (+0.00 dB) = decoder scale 1/32767, values unchanged -> LOSSLESS 16-bit
+--- measure Fri Oct  9 09:58:17 2026: "Artist - Title" (127 s): blocks 16:0 24:0 X:249; X blocks on a grid 249, on no grid 0; 16-bit grid, gain 0.63725 (-3.91 dB) -> 16-bit (gain -3.9 dB)
 ```
 
 The verdict appears a few seconds into each track. Setting: "Measure the
