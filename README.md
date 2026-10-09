@@ -74,8 +74,17 @@ is no longer needed; use the app or the new favourite instead.
 
 ## Bit-perfect playback
 
-Set the Spotify volume to 100 % and switch audio normalisation off in the
-Spotify app; control the volume in LMS or on your amplifier.
+Set the Spotify volume to 100 % and control the volume in LMS or on your
+amplifier.
+
+Soloist has Spotify's loudness normalisation built in, and it stays on even
+when "Audio normalisation" is off in the Spotify app on your phone: that
+setting only applies to playback on the phone itself. Spotify's Soloist
+documentation lists no option to switch it off. Every track then arrives
+lossless but with its level lowered by a few dB (measured: -2.6 to -5.6 dB on
+loud pop/electronic tracks), and LMS shows e.g. `Spotify 16-bit (gain -3.9 dB)`.
+The samples are scaled, so the stream is not bit-perfect, but nothing is
+lost to compression.
 
 ## Troubleshooting drop-outs
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.33
+
+### Fixed
+- **24-bit tracks with a gain were labelled `NOT BIT-PERFECT`.** 0.1.32 could
+  only recognise a scaled 16-bit grid. The filter now checks the gaps between
+  neighbouring quiet values for a 16-bit or a 24-bit grid, so a lossless
+  24-bit track with Soloist's loudness normalisation shows
+  `Spotify 24-bit (gain -5.2 dB)`. Also more robust for 16-bit (tested on
+  synthetic 16/24-bit, scaled, normalised, lossy and dithered signals: no
+  false grids in 300 blocks).
+
+### Found
+- The gain measured since 0.1.32 is **Soloist's built-in loudness
+  normalisation**: a different gain per track (-2.6 to -5.6 dB here), even
+  with "Audio normalisation" off in the phone app. Soloist has no documented
+  option to switch it off. README updated.
+
 ## 0.1.32
 
 ### Fixed
