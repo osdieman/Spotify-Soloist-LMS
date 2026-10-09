@@ -1,0 +1,281 @@
+PLUGIN_SOLOIST_NAME
+	EN	Soloist Connect
+
+PLUGIN_SOLOIST_DESC
+	EN	Spotify Connect endpoint for LMS using Spotify Soloist and an ALSA Loopback
+
+PLUGIN_SOLOIST_SERVICE
+	EN	Soloist service
+
+PLUGIN_SOLOIST_RUNNING
+	EN	Running
+
+PLUGIN_SOLOIST_STOPPED
+	EN	Stopped
+
+PLUGIN_SOLOIST_STARTING
+	EN	Starting…
+
+PLUGIN_SOLOIST_STOPPING
+	EN	Stopping…
+
+PLUGIN_SOLOIST_REFRESH
+	EN	Refresh status
+
+PLUGIN_SOLOIST_PID
+	EN	Process ID
+
+PLUGIN_SOLOIST_START
+	EN	Start
+
+PLUGIN_SOLOIST_STOP
+	EN	Stop
+
+PLUGIN_SOLOIST_RESTART
+	EN	Restart
+
+PLUGIN_SOLOIST_CONTROLS
+	EN	Spotify controls
+
+PLUGIN_SOLOIST_PREV
+	EN	Previous
+
+PLUGIN_SOLOIST_PLAY
+	EN	Play
+
+PLUGIN_SOLOIST_PAUSE
+	EN	Pause
+
+PLUGIN_SOLOIST_NEXT
+	EN	Next
+
+PLUGIN_SOLOIST_LMS
+	EN	LMS playback
+
+PLUGIN_SOLOIST_AUTOPLAY_PLAYER
+	EN	Start this player when Spotify plays
+
+PLUGIN_SOLOIST_AUTOPLAY_PLAYER_DESC
+	EN	When Spotify starts playing on this Connect device and the chosen player is idle, LMS starts the Soloist Connect source on it. A player that is busy with another source is never interrupted. With "Off", a player that was already on the Soloist Connect source is still resumed.
+
+PLUGIN_SOLOIST_AUTOPLAY_NONE
+	EN	Off
+
+PLUGIN_SOLOIST_SOURCE_ITEM
+	EN	Spotify (Soloist Connect)
+
+PLUGIN_SOLOIST_CAPTURE_DEVICE
+	EN	ALSA capture device
+
+PLUGIN_SOLOIST_CAPTURE_DEVICE_DESC
+	EN	The Loopback side LMS records from (arecord -D). Keep plughw so the 24-bit capture works whatever format Soloist plays in.
+
+PLUGIN_SOLOIST_CAPTURE_BUFFER
+	EN	Capture buffer (ms)
+
+PLUGIN_SOLOIST_CAPTURE_BUFFER_DESC
+	EN	arecord buffer between the Loopback and LMS. A larger buffer absorbs short LMS pauses without dropping audio and adds no delay. Applies the next time the source starts.
+
+PLUGIN_SOLOIST_PATHS
+	EN	Program and key paths
+
+PLUGIN_SOLOIST_AUDIO
+	EN	Audio and cache settings
+
+PLUGIN_SOLOIST_AUTOSTART
+	EN	Start Soloist automatically when LMS starts
+
+PLUGIN_SOLOIST_DEVICE_NAME
+	EN	Spotify Connect device name
+
+PLUGIN_SOLOIST_BINARY
+	EN	Soloist executable
+
+PLUGIN_SOLOIST_SHIM
+	EN	Pulse shim folder
+
+PLUGIN_SOLOIST_KEY_FILE
+	EN	Private API key file
+
+PLUGIN_SOLOIST_PLAYBACK_DEVICE
+	EN	ALSA playback device
+
+PLUGIN_SOLOIST_WS
+	EN	Local WebSocket address
+
+PLUGIN_SOLOIST_DATA_DIR
+	EN	Soloist data folder
+
+PLUGIN_SOLOIST_CACHE_DIR
+	EN	Soloist cache folder
+
+PLUGIN_SOLOIST_BUFFER
+	EN	Maximum Pulse buffer (ms)
+
+PLUGIN_SOLOIST_INITIAL_VOLUME
+	EN	Initial Soloist volume (0–100)
+
+PLUGIN_SOLOIST_CACHE_SIZE
+	EN	Cache size (MB)
+
+PLUGIN_SOLOIST_SHIM_DIAG
+	EN	Write audio diagnostics (shim and capture) to the Soloist log
+
+PLUGIN_SOLOIST_SAVE_HINT
+	EN	Save settings, then use Restart to apply changed launch settings.
+
+PLUGIN_SOLOIST_LOG
+	EN	Recent Soloist log
+
+PLUGIN_SOLOIST_APP_NO_PLAYER
+	EN	Select a player first, then open Soloist Connect again.
+
+PLUGIN_SOLOIST_APP_PLAY
+	EN	▶ Play Spotify on %s
+
+PLUGIN_SOLOIST_APP_SWITCH
+	EN	▶ Switch %s to Spotify
+
+PLUGIN_SOLOIST_APP_SHOW_PLAYING
+	EN	▶ Spotify is playing on %s
+
+PLUGIN_SOLOIST_APP_PLAYING_ON
+	EN	Spotify source started on %s
+
+PLUGIN_SOLOIST_APP_STARTED
+	EN	Player switched to Spotify. Choose this device in the Spotify app if nothing plays yet.
+
+PLUGIN_SOLOIST_APP_NOT_CONNECTED
+	EN	Spotify: not connected to Soloist
+
+PLUGIN_SOLOIST_APP_SESSION_ELSEWHERE
+	EN	Spotify: the session is on another device
+
+PLUGIN_SOLOIST_APP_SPOTIFY_PLAYING
+	EN	Spotify: playing %s
+
+PLUGIN_SOLOIST_APP_SPOTIFY_PAUSED
+	EN	Spotify: paused, %s
+
+PLUGIN_SOLOIST_APP_WAITING
+	EN	Spotify: waiting; choose "%s" in the Spotify app
+
+PLUGIN_SOLOIST_APP_KEY_PROBLEM
+	EN	API key missing or unreadable; see the Soloist settings page
+
+PLUGIN_SOLOIST_APP_START
+	EN	Start Soloist
+
+PLUGIN_SOLOIST_APP_RESTART
+	EN	Restart Soloist
+
+PLUGIN_SOLOIST_APP_FAVOURITE_HINT
+	EN	Save this one as a favourite for one-tap access
+
+PLUGIN_SOLOIST_APP_STARTS
+	EN	Opening the app starts Spotify
+
+PLUGIN_SOLOIST_APP_STARTS_DESC
+	EN	Opening My Apps > Soloist Connect switches the selected player to the Spotify source straight away. A player that is busy playing something else is not switched; the page then offers a button for it.
+
+PLUGIN_SOLOIST_MSG_STARTING
+	EN	Soloist is starting…
+
+PLUGIN_SOLOIST_MSG_RESTARTING
+	EN	Soloist is restarting…
+
+PLUGIN_SOLOIST_HELPERS
+	EN	Other Soloist processes
+
+PLUGIN_SOLOIST_EXPIRY_HINT
+	EN	Soloist stopped and its log mentions an expired or rejected key or licence. See "Renewal" in the README.
+
+PLUGIN_SOLOIST_API_KEY
+	EN	API key
+
+PLUGIN_SOLOIST_API_KEY_DESC
+	EN	Paste a new key and Save. It is written straight to the key file above (permissions 600) and never stored in the LMS settings. Leave empty to keep the current key.
+
+PLUGIN_SOLOIST_KEY_SAVED
+	EN	Key saved. Click Restart to use it.
+
+PLUGIN_SOLOIST_KEY_SET
+	EN	Key set
+
+PLUGIN_SOLOIST_KEY_CHANGED
+	EN	last changed
+
+PLUGIN_SOLOIST_KEY_ENDS
+	EN	ends in
+
+PLUGIN_SOLOIST_KEY_PERMS
+	EN	Key file is readable by others; run chmod 600 on it or save the key again here
+
+PLUGIN_SOLOIST_KEY_EMPTY
+	EN	Key file is empty
+
+PLUGIN_SOLOIST_KEY_UNREADABLE
+	EN	Key file cannot be read by LMS
+
+PLUGIN_SOLOIST_KEY_MISSING
+	EN	No key file yet
+
+PLUGIN_SOLOIST_KEY_EXPIRED
+	EN	API key expired on %s
+
+PLUGIN_SOLOIST_KEY_EXPIRED_ON
+	EN	Key expired on
+
+PLUGIN_SOLOIST_KEY_EXPIRES_SOON
+	EN	Key expires soon:
+
+PLUGIN_SOLOIST_KEY_EXPIRES
+	EN	Key expires on
+
+PLUGIN_SOLOIST_DAYS
+	EN	days
+
+PLUGIN_SOLOIST_WATCHDOG
+	EN	Stall watchdog
+
+PLUGIN_SOLOIST_WATCHDOG_DESC
+	EN	Notices when the LMS main loop is blocked for more than 0.5 s and writes the duration, CPU picture and what was running to soloist.log. With call stack, it also records the code LMS was stuck in. Each arecord overrun gets a timestamped note saying whether a stall preceded it.
+
+PLUGIN_SOLOIST_WATCHDOG_OFF
+	EN	Off
+
+PLUGIN_SOLOIST_WATCHDOG_ON
+	EN	On
+
+PLUGIN_SOLOIST_WATCHDOG_STACK
+	EN	On, with call stack
+
+PLUGIN_SOLOIST_WATCHDOG_COUNT
+	EN	stalls since LMS started
+
+PLUGIN_SOLOIST_WATCHDOG_LAST
+	EN	Last stall
+
+PLUGIN_SOLOIST_DELAY
+	EN	Delay to the player: %.1f s
+
+PLUGIN_SOLOIST_DELAY_LABEL
+	EN	Delay Spotify to player
+
+PLUGIN_SOLOIST_KEEP_DELAY
+	EN	Keep the delay low
+
+PLUGIN_SOLOIST_KEEP_DELAY_DESC
+	EN	The Spotify source is live, so any backlog (after an LMS hiccup or a pause) stays as extra delay and makes Next and Pause react late. With this on, the plugin restarts the stream to drop the backlog: on a skip when the delay is over 2 s, when resuming after a pause, and at a track change when the delay is over 10 s.
+
+PLUGIN_SOLOIST_EXPIRED_SHORT
+	EN	build expired
+
+PLUGIN_SOLOIST_EXPIRED_LONG
+	EN	This Soloist build has expired (Soloist exit code 10). Download a newer build, copy it over the old binary and press Start.
+
+PLUGIN_SOLOIST_MEASURE
+	EN	Measure the Spotify stream
+
+PLUGIN_SOLOIST_MEASURE_DESC
+	EN	Checks the captured audio and shows what Spotify delivers: "Spotify LOSSLESS 16-bit" or "LOSSLESS 24-bit" (original values), "Spotify 16-bit (gain -3.9 dB)" or "24-bit (gain …)" (lossless source, but its level was changed, e.g. by Soloist's loudness normalisation), or "Spotify NOT BIT-PERFECT" (no integer grid: lossy or dithered). Shows plain "Spotify" until it is sure. Takes a few seconds per track; one line per track goes to soloist.log ("--- measure"). Applies from the next time the source starts.
