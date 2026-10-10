@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.40
+
+### New
+- **Icon**, also for the Material skin: `html/images/soloist_svg.png` with a
+  single-colour `soloist.svg` next to it, so Material colours it to fit light
+  and dark themes; other skins and apps use the PNG. An original design (a
+  music note with Connect waves), no Spotify logo.
+
+### Fixed
+- Opening the settings page could block LMS for over a second (stall watchdog:
+  `Manager.pm _readPid`) when the SD card was busy, e.g. right after Soloist
+  started: every status check read the pid file from the card. The plugin now
+  remembers Soloist's process ID and checks it in `/proc` (RAM); the pid file
+  is read only once per LMS start, to find a Soloist that was already running.
+
 ## 0.1.39
 
 ### New
