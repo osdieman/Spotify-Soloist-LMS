@@ -297,3 +297,9 @@ PLUGIN_SOLOIST_AUTO_UPDATE
 
 PLUGIN_SOLOIST_AUTO_UPDATE_DESC
 	EN	Soloist builds stop working 90 days after their build date. When this is on, the plugin checks Spotify's download address once a day, downloads a newer build in the background, tests it, and switches to it when nothing has played through Soloist for 10 minutes (right away if the old build has expired). The previous build is kept as "soloist.prev" and restored automatically if the new one doesn't start. The download comes straight from Spotify to this machine.
+
+PLUGIN_SOLOIST_NORMALIZE
+	EN	Loudness normalisation
+
+PLUGIN_SOLOIST_NORMALIZE_DESC
+	EN	Spotify's own volume levelling between tracks, done inside Soloist (the setting in your phone's Spotify app does not reach it). Off (default): every track arrives at its original level, bit-perfect; the measurement then shows "LOSSLESS 16-bit/24-bit". On: tracks are levelled, typically 2-6 dB quieter. Applies from the next Soloist start; press Restart after saving.

@@ -111,6 +111,7 @@ sub start {
         return _fail('Data/cache directory path is empty') unless defined $dir && length $dir;
         eval { make_path($dir) unless -d $dir; 1 } or return _fail("Cannot create directory $dir: $@");
     }
+    _applyEnginePrefs($prefs->get('dataDir'));
 
     # Keep the log from growing without bound on the SD card.
     if (-f $p{log} && -s _ > LOG_MAX_BYTES) {
@@ -423,6 +424,48 @@ sub saveKey {
     chmod 0600, $path;
     $log->warn("Soloist API key file updated ($path)");
     return 1;
+}
+
+# Soloist has no command-line or WebSocket switch for loudness
+# normalisation, but at startup it reads the Spotify desktop client's
+# preferences store in its data folder: <data>/settings/prefs and, per
+# account, <data>/settings/Users/<id>/prefs (per-account wins). The key is
+# "audio.normalize_v2". Write it into every store before each start, so it
+# holds even if Soloist rewrote its prefs in the meantime. Other lines are
+# kept as they are. (Found by foonerd for his Volumio Soloist plugin.)
+sub _applyEnginePrefs {
+    my ($dataDir) = @_;
+    return unless defined $dataDir && length $dataDir;
+    my $value = $prefs->get('loudnessNormalization') ? 'true' : 'false';
+    my @stores = ("$dataDir/settings/prefs");
+    if (opendir my $dh, "$dataDir/settings/Users") {
+        push @stores, map { "$dataDir/settings/Users/$_/prefs" }
+            grep { !/^\./ && -f "$dataDir/settings/Users/$_/prefs" } readdir $dh;
+        closedir $dh;
+    }
+    my $written = 0;
+    for my $file (@stores) {
+        my @lines;
+        if (open my $in, '<', $file) {
+            @lines = grep { !/^audio\.normalize_v2=/ } <$in>;
+            close $in;
+            $_ .= "\n" for grep { !/\n\z/ } @lines;
+        }
+        push @lines, "audio.normalize_v2=$value\n";
+        my $tmp = "$file.tmp.$$";
+        my $ok = eval {
+            make_path(dirname($file)) unless -d dirname($file);
+            open my $out, '>', $tmp or die "$!\n";
+            print {$out} @lines or die "$!\n";
+            close $out or die "$!\n";
+            rename $tmp, $file or die "$!\n";
+            1;
+        };
+        if ($ok) { $written++ }
+        else { unlink $tmp; $log->warn("Could not write Soloist preferences $file: $@") }
+    }
+    $log->info("Soloist loudness normalisation " . ($value eq 'true' ? 'on' : 'off') . " ($written preference store(s))");
+    return $written;
 }
 
 # What the settings page shows about the key: never the key itself.

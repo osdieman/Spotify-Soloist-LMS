@@ -163,8 +163,9 @@ bits are in use, then passes the audio on as 24-bit to FLAC.
 - Values on a clean 16-bit or 24-bit grid with a real gain →
   `Spotify 16-bit (gain -3.9 dB)` / `Spotify 24-bit (gain -5.2 dB)`: the source
   was lossless, but its level was changed. With Soloist this is its built-in
-  loudness normalisation (a different gain per track); a Spotify volume below
-  100 % would do the same
+  loudness normalisation (a different gain per track), which the plugin
+  switches off by default ("Loudness normalisation" setting); a Spotify volume
+  below 100 % would do the same
 - No integer grid at all → `Spotify NOT BIT-PERFECT`: a lossy stream, dither,
   or crossfade
 - Not sure yet (start of a track, quiet passages) → plain `Spotify`

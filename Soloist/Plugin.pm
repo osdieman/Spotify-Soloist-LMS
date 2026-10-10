@@ -73,6 +73,7 @@ sub initPlugin {
         appStartsPlayback => 1,
         keepDelayLow    => 1,
         measureSource   => 1,
+        loudnessNormalization => 0,   # off: Soloist delivers the original track level (bit-perfect)
         autoUpdate      => 1,      # download new Soloist builds from Spotify
         updateEtag      => '',     # archive version already installed/checked
         updateBadEtag   => '',     # archive version that failed here
