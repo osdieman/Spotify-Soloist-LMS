@@ -29,6 +29,8 @@ use constant HELPER_TERM_WAIT => 2;    # seconds before helpers get KILL
 my $lastError = '';
 my $phase = 'idle';          # idle | starting | stopping
 my $childPid = 0;            # pid we forked (needs reaping)
+my $knownPid = 0;            # last Soloist pid we saw running; checked in /proc (RAM)
+my $pidFileRead = 0;         # the pid file on the SD card is read once per LMS run
 my $phasePid = 0;
 my $deadline = 0;
 my $killSent = 0;
@@ -59,11 +61,23 @@ sub _paths {
 sub status {
     _reap();
     my %p = _paths();
-    my $pid = _readPid($p{pid});
-    unless (_isOurPid($pid)) {
-        $pid = _findSoloistPid();
-        _writeFile($p{pid}, "$pid\n", 0600) if $pid;
+    # The settings page and the app ask for this often. Checking a known pid
+    # only touches /proc (RAM); reading the pid file on the SD card can block
+    # LMS for a second when the card is busy (e.g. right after Soloist starts),
+    # so that happens once per LMS run, to find a Soloist from before.
+    my $pid = ($knownPid && _isOurPid($knownPid)) ? $knownPid : 0;
+    unless ($pid) {
+        unless ($pidFileRead) {
+            $pidFileRead = 1;
+            $pid = _readPid($p{pid});
+            $pid = 0 unless _isOurPid($pid);
+        }
+        unless ($pid) {
+            $pid = _findSoloistPid();
+            _writeFile($p{pid}, "$pid\n", 0600) if $pid && $pid != $knownPid;
+        }
     }
+    $knownPid = $pid;
     return {
         running  => $pid ? 1 : 0,
         pid      => $pid || 0,
@@ -174,6 +188,7 @@ sub start {
     }
     close $logfh;
     $childPid = $pid;
+    $knownPid = $pid;
     unless (_writeFile($p{pid}, "$pid\n", 0600)) {
         kill 'TERM', $pid;
         return _fail("Could not write Soloist pid file $p{pid}: $!");

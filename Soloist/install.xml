@@ -8,11 +8,12 @@
 	<id>8fa08751-19c0-4fe6-9c83-3f572e360102</id>
 	<module>Plugins::Soloist::Plugin</module>
 	<optionsURL>plugins/Soloist/settings/basic.html</optionsURL>
+	<icon>plugins/Soloist/html/images/soloist_svg.png</icon>
 	<targetApplication>
 		<id>SqueezeCenter</id>
 		<maxVersion>*</maxVersion>
 		<minVersion>8.0</minVersion>
 	</targetApplication>
 	<type>2</type>
-	<version>0.1.39</version>
+	<version>0.1.40</version>
 </extension>
