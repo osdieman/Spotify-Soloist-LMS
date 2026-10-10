@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.41
+
+### Fixed
+- **Automatic Soloist updates on 32-bit piCorePlayer.** The 32-bit Soloist
+  reports its architecture as `linux/arm`, which the updater didn't know, so
+  it never found a build to download. It now maps `arm`/`armv7l`/`armhf` to
+  Spotify's arm32 build (and `arm64`/`amd64` as aliases too).
+
+### Documentation
+- Installation: the commands no longer ask questions (`rm` asked for
+  confirmation on piCorePlayer, swallowing the next pasted line), and they
+  pick the right Soloist build and Pulse shim for 64-bit (`arm64`) or 32-bit
+  (`arm32` / shim `armhf`) piCorePlayer automatically. Thanks to the first
+  tester on a Pi 3B.
+
 ## 0.1.40
 
 ### New

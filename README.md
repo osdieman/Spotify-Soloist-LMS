@@ -35,8 +35,9 @@ Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► soloist
 
 ## Requirements
 
-- **piCorePlayer 64-bit on a Raspberry Pi** (tested on a Pi 4) running Lyrion
-  Music Server 8.0 or later. Other systems are not supported for now.
+- **piCorePlayer on a Raspberry Pi** running Lyrion Music Server 8.0 or later:
+  64-bit (tested on a Pi 4) or 32-bit (Pi 3B reported by a user). Other
+  systems are not supported for now.
 - A **Spotify Premium** account and a free **Spotify for Developers** account
   (for the Soloist API key)
 - **Spotify Soloist**, downloaded from Spotify (step 3 below). It is
@@ -53,7 +54,9 @@ Spotify app ─► Soloist ─► Pulse shim ─► ALSA Loopback ─► soloist
 The commands below run in an SSH session on the Pi as the normal `tc` user
 (LMS runs as `tc` too, so the files then have the right owner). They use the
 plugin's default folder `/mnt/mmcblk0p2/tce/soloist-prototype`, so no paths
-need changing on the settings page.
+need changing on the settings page. They never ask questions, so each block
+can be pasted in one go. Run steps 3 and 4 in the **same** SSH session: step 3
+detects whether your piCorePlayer is 64-bit or 32-bit.
 
 ### 1. Load the Loopback driver at every boot
 
@@ -83,31 +86,42 @@ Spotify publishes the current build at a fixed address
 ([Downloads and updates](https://developer.spotify.com/documentation/soloist/reference/downloads-and-updates)):
 
 ```
+case "$(uname -m)" in
+  aarch64) SOLOIST=arm64; SHIM=arm64 ;;   # 64-bit piCorePlayer
+  armv7l)  SOLOIST=arm32; SHIM=armhf ;;   # 32-bit piCorePlayer
+  *) echo "Not supported: $(uname -m)" ;;
+esac
+echo "Soloist build: $SOLOIST, shim: $SHIM"
 mkdir -p /mnt/mmcblk0p2/tce/soloist-prototype/bin
 cd /tmp
-curl -fL -o soloist.tar.gz https://soloist-builds.spotifycdn.com/soloist_release_arm64.tar.gz
+curl -fL -o soloist.tar.gz https://soloist-builds.spotifycdn.com/soloist_release_$SOLOIST.tar.gz
 tar -xzf soloist.tar.gz
-cp soloist /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist
+cat soloist > /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist
 chmod 755 /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist
-rm soloist soloist.tar.gz
+rm -f soloist soloist.tar.gz
 /mnt/mmcblk0p2/tce/soloist-prototype/bin/soloist --version
 ```
 
 The last command should print something like
-`soloist 1.3.9.4 build … (linux/aarch64)`. You only do this once: from then on
-the plugin keeps Soloist up to date itself (see
-[Automatic Soloist updates](#automatic-soloist-updates)).
+`soloist 1.3.9.7 build … (linux/aarch64)` (64-bit) or `(linux/arm)` (32-bit).
+You only do this once: from then on the plugin keeps Soloist up to date itself
+(see [Automatic Soloist updates](#automatic-soloist-updates)).
 
 ### 4. Download the Pulse shim
+
+foonerd publishes the shim for both: `arm64` for 64-bit, `armhf` for 32-bit
+(`$SHIM` from step 3 picks the right one):
 
 ```
 mkdir -p /mnt/mmcblk0p2/tce/soloist-prototype/shim
 curl -fL -o /mnt/mmcblk0p2/tce/soloist-prototype/shim/libpulse.so.0 \
-  https://raw.githubusercontent.com/foonerd/alsa_soloist_connect/main/soloist_connect/alsa-lib/arm64/libpulse.so.0
+  https://raw.githubusercontent.com/foonerd/alsa_soloist_connect/main/soloist_connect/alsa-lib/$SHIM/libpulse.so.0
 ls -l /mnt/mmcblk0p2/tce/soloist-prototype/shim/
 ```
 
-`libpulse.so.0` should be listed with about 80 KB.
+`libpulse.so.0` should be listed with about 80 KB (64-bit) or 44 KB (32-bit).
+If it says 0 bytes or the download fails, `$SHIM` is empty: run step 3 again
+in this session first.
 
 ### 5. Install the plugin
 
