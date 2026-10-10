@@ -40,10 +40,13 @@ use constant VERIFY_AFTER  => 90;            # s after the restart
 use constant UNPACK_WAIT   => 180;
 use constant SAME_BUILD    => 6 * 3600;      # archive uploaded within this of the build = same build
 
+# Keyed by the architecture names Soloist ("soloist --version": linux/aarch64,
+# linux/arm, ...) and uname -m (aarch64, armv7l, ...) use.
+my $BASE = 'https://soloist-builds.spotifycdn.com/soloist_release_';
 my %URL = (
-    aarch64 => 'https://soloist-builds.spotifycdn.com/soloist_release_arm64.tar.gz',
-    armv7l  => 'https://soloist-builds.spotifycdn.com/soloist_release_arm32.tar.gz',
-    x86_64  => 'https://soloist-builds.spotifycdn.com/soloist_release_x86_64.tar.gz',
+    (map { $_ => "${BASE}arm64.tar.gz" }  qw(aarch64 arm64)),
+    (map { $_ => "${BASE}arm32.tar.gz" }  qw(arm armv7l armv7 armhf)),
+    (map { $_ => "${BASE}x86_64.tar.gz" } qw(x86_64 amd64)),
 );
 
 my $phase = 'idle';    # idle checking downloading unpacking waiting verifying
