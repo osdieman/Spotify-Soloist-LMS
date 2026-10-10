@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.39
+
+### New
+- **Bit-perfect: loudness normalisation can be switched off, and is off by
+  default.** Soloist has no official switch, but at startup it reads the
+  Spotify client's preferences store in its data folder. Before every start
+  the plugin now writes `audio.normalize_v2=false` (or `true`) into
+  `<data>/settings/prefs` and every `<data>/settings/Users/*/prefs`, keeping
+  all other lines. Measured on a Pi 4: tracks that showed
+  `16-bit (gain -2 to -6 dB)` now show `LOSSLESS 16-bit` / `LOSSLESS 24-bit`.
+  Thanks to foonerd for finding the key.
+- Setting "Loudness normalisation" (off by default); applies from the next
+  Soloist start.
+
 ## 0.1.38
 
 ### Fixed

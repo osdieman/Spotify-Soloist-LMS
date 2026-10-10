@@ -162,17 +162,21 @@ Connect* or the new favourite instead.
 
 ## Bit-perfect playback
 
-Set the Spotify volume to 100 % and control the volume in LMS or on your
-amplifier.
+With the default settings the stream is **bit-perfect from Spotify to the
+FLAC stream**: LMS shows `Spotify LOSSLESS 16-bit` or `Spotify LOSSLESS 24-bit`,
+measured from the audio itself.
 
-Soloist has Spotify's loudness normalisation built in, and it stays on even
-when "Audio normalisation" is off in the Spotify app on your phone: that
-setting only applies to playback on the phone itself. Spotify's Soloist
-documentation lists no option to switch it off. Every track then arrives
-lossless but with its level lowered by a few dB (measured: -2.6 to -5.6 dB on
-loud pop/electronic tracks), and LMS shows e.g. `Spotify 16-bit (gain -3.9 dB)`.
-The samples are scaled, so the stream is not bit-perfect, but nothing is
-lost to compression.
+- **Loudness normalisation is off by default.** Soloist does Spotify's
+  track-to-track levelling internally, and the "Audio normalisation" switch in
+  the Spotify app on your phone does not reach it. Soloist has no official
+  option for it either, but it reads the Spotify client's preferences file in
+  its data folder at startup; the plugin writes `audio.normalize_v2=false`
+  there before every start (thanks to foonerd for finding this key). With it
+  on, tracks arrive scaled, typically 2-6 dB quieter, and LMS shows e.g.
+  `Spotify 16-bit (gain -3.9 dB)`.
+- Keep the Spotify volume at **100 %** and control the volume in LMS or on your
+  amplifier.
+- Set the device's streaming quality to **Lossless** in the Spotify app.
 
 ## Troubleshooting drop-outs
 
@@ -206,7 +210,8 @@ See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Credits
 
-- Pulse shim and research on the Soloist WebSocket:
+- Pulse shim, research on the Soloist WebSocket and the preferences key that
+  switches off loudness normalisation:
   [foonerd/alsa_soloist_connect](https://github.com/foonerd/alsa_soloist_connect) (MIT)
 - SpotOn for LMS transport handling ideas
 
