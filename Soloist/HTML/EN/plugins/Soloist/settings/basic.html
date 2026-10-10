@@ -94,6 +94,9 @@
       [% END %]
     </select>
   [% END %]
+  [% WRAPPER setting title="PLUGIN_SOLOIST_NORMALIZE" desc="PLUGIN_SOLOIST_NORMALIZE_DESC" %]
+    <input type="checkbox" class="stdedit" name="pref_loudnessNormalization" id="pref_loudnessNormalization" value="1" [% IF prefs.pref_loudnessNormalization %]checked="checked"[% END %]/>
+  [% END %]
   [% WRAPPER setting title="PLUGIN_SOLOIST_MEASURE" desc="PLUGIN_SOLOIST_MEASURE_DESC" %]
     <input type="checkbox" class="stdedit" name="pref_measureSource" id="pref_measureSource" value="1" [% IF prefs.pref_measureSource %]checked="checked"[% END %]/>
   [% END %]
